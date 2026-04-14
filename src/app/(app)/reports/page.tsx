@@ -1,0 +1,207 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from "chart.js";
+import { Bar } from "react-chartjs-2";
+import RippleButton from "@/components/ui/RippleButton";
+import { useI18n } from "@/components/i18n/I18nContext";
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+
+type Period = "day" | "week" | "month" | "year";
+
+type Report = {
+  period: Period;
+  periodTitle: string;
+  kpi: {
+    harvested: number;
+    waterLiters: number;
+    tasksTotal: number;
+    tasksDone: number;
+    tasksCompletionPct: number;
+  };
+  chart: { labels: string[]; values: number[] };
+  table: Array<{ id: number; name: string; harvested: number }>;
+};
+
+function kpiCard(label: string, value: string) {
+  return (
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5 hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(0,0,0,0.38)] transition">
+      <div className="text-xs text-[var(--muted)]">{label}</div>
+      <div className="mt-2 text-2xl font-semibold">{value}</div>
+    </div>
+  );
+}
+
+export default function ReportsPage() {
+  const { t: tr } = useI18n();
+  const [period, setPeriod] = useState<Period>("month");
+  const [report, setReport] = useState<Report | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load(p: Period) {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/reports?period=${p}`, { cache: "no-store" });
+      const data = (await res.json().catch(() => null)) as null | { ok: boolean; report: Report; error?: string };
+      if (data?.ok) setReport(data.report);
+      else setError(data?.error || "Не удалось загрузить отчёт");
+    } catch {
+      setError("Ошибка сети. Повторите попытку.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load(period);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const barData = useMemo(() => {
+    if (!report) return null;
+    return {
+      labels: report.chart.labels,
+      datasets: [
+        {
+          label: tr("reports.table.harvested"),
+          data: report.chart.values,
+          backgroundColor: "rgba(34, 197, 94, 0.45)",
+          borderColor: "rgba(34, 197, 94, 0.95)",
+          borderWidth: 1,
+        },
+      ],
+    };
+  }, [report]);
+
+  const barOptions = useMemo(
+    () => ({
+      responsive: true,
+      plugins: {
+        legend: { display: true, labels: { color: "rgba(232,245,238,0.8)" } },
+        tooltip: { enabled: true },
+        title: { display: false },
+      },
+      scales: {
+        x: { ticks: { color: "rgba(232,245,238,0.6)" }, grid: { color: "rgba(232,245,238,0.08)" } },
+        y: { ticks: { color: "rgba(232,245,238,0.6)" }, grid: { color: "rgba(232,245,238,0.08)" } },
+      },
+    }),
+    [],
+  );
+
+  function download(format: "pdf" | "excel") {
+    const url = `/api/reports?period=${period}&format=${format === "excel" ? "excel" : "pdf"}`;
+    window.open(url, "_blank");
+  }
+
+  return (
+    <main className="space-y-4">
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-xl font-semibold">{tr("reports.title")}</div>
+            <div className="text-sm text-[var(--muted)] mt-1">
+              {tr("reports.subtitle")}
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <select
+              value={period}
+              onChange={(e) => {
+                const p = e.target.value as Period;
+                setPeriod(p);
+                load(p);
+              }}
+              className="rounded-xl bg-black/20 border border-[var(--border)] px-4 py-2.5 outline-none focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent)]/20 transition"
+            >
+              <option value="day">{tr("reports.period.day")}</option>
+              <option value="week">{tr("reports.period.week")}</option>
+              <option value="month">{tr("reports.period.month")}</option>
+              <option value="year">{tr("reports.period.year")}</option>
+            </select>
+            <RippleButton onClick={() => download("pdf")} variant="outline" className="px-4 py-2.5" disabled={loading}>
+              {tr("reports.exportPdf")}
+            </RippleButton>
+            <RippleButton
+              onClick={() => download("excel")}
+              variant="outline"
+              className="px-4 py-2.5"
+              disabled={loading}
+            >
+              {tr("reports.exportExcel")}
+            </RippleButton>
+          </div>
+        </div>
+      </div>
+
+      {error ? (
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          {error}
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {kpiCard(tr("reports.kpi.harvested"), report ? String(report.kpi.harvested) : loading ? "…" : "—")}
+        {kpiCard(tr("reports.kpi.water"), report ? String(report.kpi.waterLiters) : loading ? "…" : "—")}
+        {kpiCard(
+          tr("reports.kpi.tasksCompletion"),
+          report ? `${report.kpi.tasksDone}/${report.kpi.tasksTotal} (${report.kpi.tasksCompletionPct}%)` : loading ? "…" : "—",
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
+          <div className="font-semibold">{tr("reports.chart.title")}</div>
+          <div className="text-sm text-[var(--muted)] mt-1">
+            {tr("reports.chart.subtitle")}
+          </div>
+          <div className="mt-4">{barData ? <Bar options={barOptions as any} data={barData as any} /> : null}</div>
+        </section>
+
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)]">
+          <div className="p-5 border-b border-[var(--border)]">
+            <div className="font-semibold">{tr("reports.table.title")}</div>
+            <div className="text-sm text-[var(--muted)] mt-1">{tr("reports.table.subtitle")}</div>
+          </div>
+          <div className="overflow-auto">
+            <table className="w-full text-sm fg-table-stagger">
+              <thead className="text-left text-[var(--muted)]">
+                <tr className="border-b border-[var(--border)]">
+                  <th className="p-4">{tr("reports.table.greenhouse")}</th>
+                  <th className="p-4">{tr("reports.table.harvested")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(report?.table ?? []).map((r) => (
+                  <tr key={r.id} className="border-b border-[var(--border)] last:border-b-0 hover:bg-white/5 transition">
+                    <td className="p-4 font-medium">{r.name}</td>
+                    <td className="p-4 text-[var(--muted)]">{r.harvested}</td>
+                  </tr>
+                ))}
+                {!report && loading ? (
+                  <tr>
+                    <td className="p-6 text-[var(--muted)]" colSpan={2}>
+                      {tr("common.loading")}
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
+

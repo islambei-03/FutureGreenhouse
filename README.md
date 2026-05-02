@@ -1,36 +1,103 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Future Greenhouse
 
-## Getting Started
+Веб‑приложение для управления теплицами: мониторинг датчиков, культуры, полив, задачи, отчёты, уведомления, AI‑чат.  
+Стек: **Next.js (App Router)**, **TypeScript**, **Tailwind**, **PostgreSQL (Supabase)**.
 
-First, run the development server:
+## Быстрый старт (локально)
+
+1) Установить зависимости:
+
+```bash
+npm install
+```
+
+2) Создать `.env.local`:
+
+```bash
+JWT_SECRET=...любой_длинный_секрет...
+DATABASE_URL=postgresql://... (Supabase Session pooler / direct)
+OPENAI_API_KEY=... (опционально, для AI)
+```
+
+3) Инициализировать БД (локально/ручной шаг):
+
+```bash
+npm run db:setup
+```
+
+4) Запуск:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Открыть приложение на `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Важно про продакшен (Vercel)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Seed в production выключен** по умолчанию.  
+- **Авто‑init/миграции в production выключены** по умолчанию (рекомендуется выполнять как отдельный шаг).
 
-## Learn More
+Переменные:
+- **`DB_AUTO_INIT`**: `"1"`/`"0"` — авто‑создание схемы + миграции при первом запросе (по умолчанию `dev=1`, `prod=0`)
+- **`DB_AUTO_SEED`**: `"1"`/`"0"` — авто‑seed демо‑данных при первом запросе (по умолчанию `dev=1`, `prod=0`)
 
-To learn more about Next.js, take a look at the following resources:
+Рекомендуемый поток деплоя:
+- в CI/локально перед деплоем: `npm run db:migrate` (и при необходимости `npm run db:seed`)
+- на Vercel: `DB_AUTO_INIT=0`, `DB_AUTO_SEED=0`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## SSL и Supabase
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- В **production** `sslmode=no-verify` **запрещён** (приложение упадёт при старте, чтобы не развернуть небезопасную конфигурацию).
+- Для локальной отладки допустимо `...sslmode=no-verify`, но лучше использовать нормальную верификацию (`sslmode=require`).
 
-## Deploy on Vercel
+## Роли (RBAC)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Роли: `admin`, `director`, `agronomist`, `worker`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **admin**: полный доступ
+- **director**: доступ только для просмотра (дашборд/мониторинг/отчёты)
+- **agronomist**: планирование культур/полива/задач и контроль теплиц
+- **worker**: выполнение задач + ручной ввод показаний датчиков (план B при сбое датчиков)
+
+## Демо‑аккаунты (только dev)
+
+При `DB_AUTO_SEED=1` в dev добавляются тестовые пользователи.  
+По умолчанию они **не отображаются на странице логина** — смотреть/управлять пользователями можно через админ‑раздел.
+
+## Команды
+
+- **`npm run db:migrate`**: схема + миграции
+- **`npm run db:seed`**: демо‑данные
+- **`npm run db:setup`**: migrate + seed
+- **`npm run sensors:simulate --`**: живой симулятор датчиков (пишет новые строки в `sensor_data`)
+- **`npm test`**: unit‑тесты (Vitest)
+- **`npm run test:e2e`**: e2e smoke (Playwright)
+
+### Живой симулятор датчиков (как будто подключены реальные сенсоры)
+
+Симулятор работает **отдельным процессом** и периодически вставляет показания в `sensor_data`.
+Это позволяет видеть «живые» обновления на вкладках мониторинга и графиках.
+
+Примеры:
+
+```bash
+# каждые 5 секунд по всем теплицам
+npm run sensors:simulate --
+
+# только для теплицы #1, каждые 2 секунды, меньше шума
+npm run sensors:simulate -- --gh 1 --interval-ms 2000 --jitter 0.15
+```
+
+План B при поломке/сбое датчиков: вкладка **`/sensor-entry`** (ручной ввод).
+
+## Структура БД (коротко)
+
+Основные таблицы:
+- `users`, `login_history`, `action_logs`
+- `greenhouses`, `employees`, `cultures`
+- `sensor_data`, `watering_schedule`, `tasks`
+- `notifications`, `ai_chat_history`
+
+Временные поля унифицированы в Postgres как **`timestamptz`/`date`**.
+"# FutureGreenhouse" 

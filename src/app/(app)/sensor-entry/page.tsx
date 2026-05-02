@@ -37,8 +37,8 @@ function badge(ok: boolean) {
 
 export default function SensorEntryPage() {
   const me = useMe();
-  const role: UserRole = me?.role ?? "viewer";
-  const allowed = role === "operator" || role === "admin";
+  const role: UserRole = me?.role ?? "director";
+  const allowed = role === "worker" || role === "admin";
   const { t: tr } = useI18n();
 
   const FormSchema = useMemo(
@@ -84,18 +84,13 @@ export default function SensorEntryPage() {
     setLoading(true);
     try {
       const gRes = await fetch("/api/greenhouses", { cache: "no-store" });
-      const g = (await gRes.json().catch(() => null)) as null | { ok: boolean; greenhouses: any[] };
+      const g = (await gRes.json().catch(() => null)) as
+        | null
+        | { ok: true; greenhouses: Array<Greenhouse> }
+        | { ok: false; error?: string };
       if (g?.ok) {
-        const opts = (g.greenhouses as any[]).map((x) => ({
-          id: x.id,
-          name: x.name,
-          temp_min: x.temp_min,
-          temp_max: x.temp_max,
-          humidity_min: x.humidity_min,
-          humidity_max: x.humidity_max,
-        })) as Greenhouse[];
-        setGreenhouses(opts);
-        setForm((v) => ({ ...v, greenhouse_id: v.greenhouse_id || opts[0]?.id || 0 }));
+        setGreenhouses(g.greenhouses);
+        setForm((v) => ({ ...v, greenhouse_id: v.greenhouse_id || g.greenhouses[0]?.id || 0 }));
       }
 
       const rRes = await fetch("/api/sensors?recent=1", { cache: "no-store" });

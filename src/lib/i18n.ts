@@ -56,6 +56,11 @@ export type I18nKey =
   | "dashboard.todayTasks.title"
   | "dashboard.todayTasks.subtitle"
   | "dashboard.todayTasks.noTasks"
+  | "dashboard.charts.tempByGreenhouse"
+  | "dashboard.charts.co2ByGreenhouse"
+  | "dashboard.charts.tasksSplit"
+  | "dashboard.charts.tasksDone"
+  | "dashboard.charts.tasksOpen"
   | "greenhouses.title"
   | "greenhouses.subtitle"
   | "greenhouses.add"
@@ -119,6 +124,7 @@ export type I18nKey =
   | "parameters.humidity"
   | "parameters.charts.temperature"
   | "parameters.charts.humidity"
+  | "parameters.charts.noData"
   | "parameters.table.title"
   | "parameters.table.subtitle"
   | "parameters.table.greenhouse"
@@ -238,9 +244,9 @@ export type I18nKey =
   | "users.employee"
   | "users.employeeNone"
   | "users.role.admin"
+  | "users.role.director"
   | "users.role.agronomist"
-  | "users.role.operator"
-  | "users.role.viewer"
+  | "users.role.worker"
   | "users.status.active"
   | "users.status.blocked"
   | "users.actions.block"
@@ -293,10 +299,6 @@ export type I18nKey =
   | "profile.security.changePassword"
   | "profile.security.currentPassword"
   | "profile.security.newPassword"
-  | "profile.security.twofa"
-  | "profile.security.twofaLater"
-  | "profile.security.twofaEnable"
-  | "profile.security.twofaDisable"
   | "profile.logins.title"
   | "profile.logins.when"
   | "profile.logins.ip"
@@ -388,6 +390,9 @@ export type I18nKey =
   | "db.safeEditHint"
   | "db.prev"
   | "db.next"
+  | "db.sensorSim.title"
+  | "db.sensorSim.enable"
+  | "db.sensorSim.disable"
   | "api.unauthorized"
   | "api.forbidden"
   | "api.badData"
@@ -462,6 +467,11 @@ const RU: Record<I18nKey, string> = {
   "dashboard.todayTasks.title": "Задачи на сегодня",
   "dashboard.todayTasks.subtitle": "Отмечай выполнение чекбоксами",
   "dashboard.todayTasks.noTasks": "Нет задач на сегодня.",
+  "dashboard.charts.tempByGreenhouse": "Температура по теплицам",
+  "dashboard.charts.co2ByGreenhouse": "CO₂ по теплицам",
+  "dashboard.charts.tasksSplit": "Задачи: выполнено и открыто",
+  "dashboard.charts.tasksDone": "Выполнено",
+  "dashboard.charts.tasksOpen": "Открыто",
   "greenhouses.title": "Теплицы",
   "greenhouses.subtitle":
     "Карточки (3 колонки), текущие показатели и статусы. Кнопки редактирования скрываются по роли.",
@@ -526,6 +536,7 @@ const RU: Record<I18nKey, string> = {
   "parameters.humidity": "Влажность",
   "parameters.charts.temperature": "График температуры",
   "parameters.charts.humidity": "График влажности",
+  "parameters.charts.noData": "Нет записей за выбранный период — включите симуляцию в разделе «База данных» или подождите новые замеры.",
   "parameters.table.title": "Текущие показания всех датчиков",
   "parameters.table.subtitle": "Подсветка — при отклонении от нормы",
   "parameters.table.greenhouse": "Теплица",
@@ -645,9 +656,9 @@ const RU: Record<I18nKey, string> = {
   "users.employee": "Сотрудник",
   "users.employeeNone": "Сотрудник: —",
   "users.role.admin": "Администратор",
+  "users.role.director": "Директор",
   "users.role.agronomist": "Агроном",
-  "users.role.operator": "Оператор",
-  "users.role.viewer": "Наблюдатель",
+  "users.role.worker": "Рабочий",
   "users.status.active": "активен",
   "users.status.blocked": "заблокирован",
   "users.actions.block": "Заблокировать",
@@ -700,10 +711,6 @@ const RU: Record<I18nKey, string> = {
   "profile.security.changePassword": "Смена пароля",
   "profile.security.currentPassword": "Текущий пароль",
   "profile.security.newPassword": "Новый пароль (мин. 6 символов)",
-  "profile.security.twofa": "2FA (в перспективе)",
-  "profile.security.twofaLater": "Заготовка добавлена: поле/флаг в БД и UI. Подключение TOTP можно сделать следующим шагом.",
-  "profile.security.twofaEnable": "Включить 2FA",
-  "profile.security.twofaDisable": "Отключить 2FA",
   "profile.logins.title": "История входов",
   "profile.logins.when": "Когда",
   "profile.logins.ip": "IP",
@@ -795,6 +802,9 @@ const RU: Record<I18nKey, string> = {
   "db.safeEditHint": "CRUD доступен только для рабочих таблиц (теплицы/культуры/датчики/полив/задачи/сотрудники/уведомления).",
   "db.prev": "Назад",
   "db.next": "Вперёд",
+  "db.sensorSim.title": "Симуляция данных датчиков",
+  "db.sensorSim.enable": "Включить",
+  "db.sensorSim.disable": "Выключить",
   "api.unauthorized": "Не авторизован",
   "api.forbidden": "Недостаточно прав",
   "api.badData": "Некорректные данные",
@@ -870,6 +880,11 @@ const KK: Record<I18nKey, string> = {
   "dashboard.todayTasks.title": "Бүгінгі тапсырмалар",
   "dashboard.todayTasks.subtitle": "Орындалуын белгілеңіз",
   "dashboard.todayTasks.noTasks": "Бүгінге тапсырма жоқ.",
+  "dashboard.charts.tempByGreenhouse": "Жылыжайлар бойынша температура",
+  "dashboard.charts.co2ByGreenhouse": "Жылыжайлар бойынша CO₂",
+  "dashboard.charts.tasksSplit": "Тапсырмалар: орындалған және ашық",
+  "dashboard.charts.tasksDone": "Орындалған",
+  "dashboard.charts.tasksOpen": "Ашық",
   "greenhouses.title": "Жылыжайлар",
   "greenhouses.subtitle":
     "Карточкалар (3 баған), ағымдағы көрсеткіштер мен күйлер. Рөлге қарай өңдеу батырмалары жасырылады.",
@@ -934,6 +949,8 @@ const KK: Record<I18nKey, string> = {
   "parameters.humidity": "Ылғалдылық",
   "parameters.charts.temperature": "Температура графигі",
   "parameters.charts.humidity": "Ылғалдылық графигі",
+  "parameters.charts.noData":
+    "Таңдалған кезеңде жазба жоқ — «Деректер базасы» бөлімінде симуляцияны қосыңыз немесе жаңа өлшемдерді күтіңіз.",
   "parameters.table.title": "Барлық датчиктердің ағымдағы көрсеткіштері",
   "parameters.table.subtitle": "Нормадан ауытқыса — белгіленеді",
   "parameters.table.greenhouse": "Жылыжай",
@@ -1053,9 +1070,9 @@ const KK: Record<I18nKey, string> = {
   "users.employee": "Қызметкер",
   "users.employeeNone": "Қызметкер: —",
   "users.role.admin": "Әкімші",
+  "users.role.director": "Директор",
   "users.role.agronomist": "Агроном",
-  "users.role.operator": "Оператор",
-  "users.role.viewer": "Бақылаушы",
+  "users.role.worker": "Жұмысшы",
   "users.status.active": "белсенді",
   "users.status.blocked": "бұғатталған",
   "users.actions.block": "Бұғаттау",
@@ -1108,10 +1125,6 @@ const KK: Record<I18nKey, string> = {
   "profile.security.changePassword": "Құпиясөзді өзгерту",
   "profile.security.currentPassword": "Ағымдағы құпиясөз",
   "profile.security.newPassword": "Жаңа құпиясөз (кемі 6 таңба)",
-  "profile.security.twofa": "2FA (болашақта)",
-  "profile.security.twofaLater": "Дайындама бар: БД-дегі өріс/жалауша және UI. TOTP қосу — келесі қадам.",
-  "profile.security.twofaEnable": "2FA қосу",
-  "profile.security.twofaDisable": "2FA өшіру",
   "profile.logins.title": "Кіру тарихы",
   "profile.logins.when": "Қашан",
   "profile.logins.ip": "IP",
@@ -1203,6 +1216,9 @@ const KK: Record<I18nKey, string> = {
   "db.safeEditHint": "CRUD тек жұмыс кестелері үшін (жылыжай/дақыл/датчик/суару/тапсырма/қызметкер/хабарландыру).",
   "db.prev": "Артқа",
   "db.next": "Алға",
+  "db.sensorSim.title": "Датчик деректерін симуляциялау",
+  "db.sensorSim.enable": "Қосу",
+  "db.sensorSim.disable": "Өшіру",
   "api.unauthorized": "Авторизация жоқ",
   "api.forbidden": "Құқық жеткіліксіз",
   "api.badData": "Деректер қате",

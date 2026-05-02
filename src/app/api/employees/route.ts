@@ -20,7 +20,7 @@ export async function GET() {
   const auth = await requireApiRoles("any");
   if (!auth.ok) return auth.response;
 
-  const rows = db()
+  const rows = (await db()
     .prepare(
       `
       SELECT
@@ -36,7 +36,7 @@ export async function GET() {
       ORDER BY e.full_name ASC
     `,
     )
-    .all();
+    .all()) as unknown[];
 
   return NextResponse.json({ ok: true, employees: rows });
 }
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const r = db()
+  const r = (await db()
     .prepare(
       `
     INSERT INTO employees (full_name, position, greenhouse_id, phone, status, notes)
@@ -67,9 +67,9 @@ export async function POST(req: Request) {
       phone: parsed.data.phone ?? null,
       status: parsed.data.status ?? "на смене",
       notes: parsed.data.notes ?? null,
-    }) as { lastInsertRowid: number };
+    })) as { lastInsertRowid: number };
 
-  auditLog({
+  await auditLog({
     actorUserId: Number(auth.user.id),
     action: "create",
     entity: "employees",
@@ -93,7 +93,7 @@ export async function PUT(req: Request) {
     );
   }
 
-  db()
+  await db()
     .prepare(
       `
     UPDATE employees SET
@@ -114,7 +114,7 @@ export async function PUT(req: Request) {
       notes: parsed.data.notes ?? null,
     });
 
-  auditLog({
+  await auditLog({
     actorUserId: Number(auth.user.id),
     action: "update",
     entity: "employees",
@@ -135,8 +135,7 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ ok: false, error: await apiT("api.badId") }, { status: 400 });
   }
 
-  db().prepare("DELETE FROM employees WHERE id = ?").run(id);
-  auditLog({ actorUserId: Number(auth.user.id), action: "delete", entity: "employees", entityId: id, details: `Удалён сотрудник #${id}` });
+  await db().prepare("DELETE FROM employees WHERE id = ?").run(id);
+  await auditLog({ actorUserId: Number(auth.user.id), action: "delete", entity: "employees", entityId: id, details: `Удалён сотрудник #${id}` });
   return NextResponse.json({ ok: true });
 }
-

@@ -6,7 +6,7 @@ import { requireApiRoles } from "@/lib/api/rbac";
 import { auditLog } from "@/lib/audit";
 import { apiT } from "@/lib/api/i18n";
 
-const RoleEnum = z.enum(["admin", "agronomist", "operator", "viewer"]);
+const RoleEnum = z.enum(["admin", "director", "agronomist", "worker"]);
 
 const CreateSchema = z.object({
   full_name: z.string().min(3, "Введите ФИО"),
@@ -31,7 +31,7 @@ export async function GET() {
   const auth = await requireApiRoles(["admin"]);
   if (!auth.ok) return auth.response;
 
-  const rows = db()
+  const rows = (await db()
     .prepare(
       `
       SELECT
@@ -49,7 +49,7 @@ export async function GET() {
       ORDER BY u.id ASC
     `,
     )
-    .all();
+    .all()) as unknown[];
 
   return NextResponse.json({ ok: true, users: rows });
 }
@@ -67,12 +67,14 @@ export async function POST(req: Request) {
     );
   }
 
-  const exists = db().prepare("SELECT 1 FROM users WHERE login = ?").get(parsed.data.login);
+  const exists = (await db().prepare("SELECT 1 as x FROM users WHERE login = ?").get(parsed.data.login)) as
+    | { x: number }
+    | undefined;
   if (exists) return NextResponse.json({ ok: false, error: "Логин уже занят" }, { status: 409 });
 
   const password_hash = await bcrypt.hash(parsed.data.password, 10);
 
-  const r = db()
+  const r = (await db()
     .prepare(
       `
       INSERT INTO users (full_name, login, password_hash, role, employee_id, is_active)
@@ -86,9 +88,9 @@ export async function POST(req: Request) {
       role: parsed.data.role,
       employee_id: parsed.data.employee_id ?? null,
       is_active: parsed.data.is_active ?? 1,
-    }) as { lastInsertRowid: number };
+    })) as { lastInsertRowid: number };
 
-  auditLog({
+  await auditLog({
     actorUserId: Number(auth.user.id),
     action: "create",
     entity: "users",
@@ -112,12 +114,11 @@ export async function PUT(req: Request) {
     );
   }
 
-  const current = db()
+  const current = (await db()
     .prepare("SELECT id, login, role FROM users WHERE id = ?")
-    .get(parsed.data.id) as { id: number; login: string; role: string } | undefined;
+    .get(parsed.data.id)) as { id: number; login: string; role: string } | undefined;
   if (!current) return NextResponse.json({ ok: false, error: "Пользователь не найден" }, { status: 404 });
 
-  // запретим админу сам себе убрать роль admin / заблокировать / удалить (удаление в DELETE)
   const actorId = Number(auth.user.id);
   if (current.id === actorId) {
     if (parsed.data.role && parsed.data.role !== "admin") {
@@ -129,17 +130,19 @@ export async function PUT(req: Request) {
   }
 
   if (parsed.data.login && parsed.data.login !== current.login) {
-    const exists = db().prepare("SELECT 1 FROM users WHERE login = ?").get(parsed.data.login);
-    if (exists) return NextResponse.json({ ok: false, error: "Логин уже занят" }, { status: 409 });
+    const taken = (await db().prepare("SELECT 1 as x FROM users WHERE login = ?").get(parsed.data.login)) as
+      | { x: number }
+      | undefined;
+    if (taken) return NextResponse.json({ ok: false, error: "Логин уже занят" }, { status: 409 });
   }
 
   const fields: string[] = [];
   const params: Record<string, unknown> = { id: parsed.data.id };
 
   for (const k of ["full_name", "login", "role", "employee_id", "is_active"] as const) {
-    if (k in parsed.data && (parsed.data as any)[k] !== undefined) {
+    if (k in parsed.data && (parsed.data as Record<string, unknown>)[k] !== undefined) {
       fields.push(`${k}=@${k}`);
-      params[k] = (parsed.data as any)[k] ?? null;
+      params[k] = (parsed.data as Record<string, unknown>)[k] ?? null;
     }
   }
 
@@ -151,9 +154,9 @@ export async function PUT(req: Request) {
 
   if (fields.length === 0) return NextResponse.json({ ok: true });
 
-  db().prepare(`UPDATE users SET ${fields.join(", ")} WHERE id=@id`).run(params);
+  await db().prepare(`UPDATE users SET ${fields.join(", ")} WHERE id=@id`).run(params);
 
-  auditLog({
+  await auditLog({
     actorUserId: actorId,
     action: "update",
     entity: "users",
@@ -177,11 +180,11 @@ export async function DELETE(req: Request) {
   const actorId = Number(auth.user.id);
   if (id === actorId) return NextResponse.json({ ok: false, error: "Нельзя удалить самого себя" }, { status: 400 });
 
-  const target = db().prepare("SELECT login FROM users WHERE id = ?").get(id) as { login: string } | undefined;
+  const target = (await db().prepare("SELECT login FROM users WHERE id = ?").get(id)) as { login: string } | undefined;
   if (!target) return NextResponse.json({ ok: false, error: "Пользователь не найден" }, { status: 404 });
 
-  db().prepare("DELETE FROM users WHERE id = ?").run(id);
-  auditLog({
+  await db().prepare("DELETE FROM users WHERE id = ?").run(id);
+  await auditLog({
     actorUserId: actorId,
     action: "delete",
     entity: "users",
@@ -191,4 +194,3 @@ export async function DELETE(req: Request) {
 
   return NextResponse.json({ ok: true });
 }
-

@@ -7,7 +7,7 @@ import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import { useI18n } from "@/components/i18n/I18nContext";
 
-type UserRole = "admin" | "agronomist" | "operator" | "viewer";
+type UserRole = "admin" | "director" | "agronomist" | "worker";
 
 type UserRow = {
   id: number;
@@ -45,7 +45,7 @@ function initials(fullName: string) {
 function toneByRole(role: UserRole) {
   if (role === "admin") return "danger" as const;
   if (role === "agronomist") return "success" as const;
-  if (role === "operator") return "info" as const;
+  if (role === "worker") return "info" as const;
   return "neutral" as const;
 }
 
@@ -94,7 +94,7 @@ export default function UsersPage() {
         full_name: z.string().min(3, tr("val.enterFullName")),
         login: z.string().min(3, tr("val.enterLogin")),
         password: z.string().min(6, tr("val.passwordMin")),
-        role: z.enum(["admin", "agronomist", "operator", "viewer"]),
+        role: z.enum(["admin", "director", "agronomist", "worker"]),
         employee_id: z.number().int().nullable(),
       }),
     [tr],
@@ -107,7 +107,7 @@ export default function UsersPage() {
         full_name: z.string().min(3, tr("val.enterFullName")),
         login: z.string().min(3, tr("val.enterLogin")),
         password: z.string().optional().nullable(),
-        role: z.enum(["admin", "agronomist", "operator", "viewer"]),
+        role: z.enum(["admin", "director", "agronomist", "worker"]),
         employee_id: z.number().int().nullable(),
         is_active: z.number().int().min(0).max(1),
       }),
@@ -128,7 +128,7 @@ export default function UsersPage() {
     full_name: "",
     login: "",
     password: "",
-    role: "viewer" as UserRole,
+    role: "director" as UserRole,
     employee_id: "" as "" | number,
     is_active: 1,
   });
@@ -165,7 +165,7 @@ export default function UsersPage() {
       full_name: "",
       login: "",
       password: "",
-      role: "viewer",
+      role: "director",
       employee_id: "",
       is_active: 1,
     });
@@ -334,9 +334,9 @@ export default function UsersPage() {
                       ? tr("users.role.admin")
                       : u.role === "agronomist"
                         ? tr("users.role.agronomist")
-                        : u.role === "operator"
-                          ? tr("users.role.operator")
-                          : tr("users.role.viewer")}
+                        : u.role === "worker"
+                          ? tr("users.role.worker")
+                          : tr("users.role.director")}
                   </Badge>
                 </td>
                 <td className="p-4 text-[var(--muted)]">{u.last_login ?? "—"}</td>
@@ -445,8 +445,8 @@ export default function UsersPage() {
             >
               <option value="admin">{tr("users.role.admin")}</option>
               <option value="agronomist">{tr("users.role.agronomist")}</option>
-              <option value="operator">{tr("users.role.operator")}</option>
-              <option value="viewer">{tr("users.role.viewer")}</option>
+              <option value="worker">{tr("users.role.worker")}</option>
+              <option value="director">{tr("users.role.director")}</option>
             </select>
           </div>
 

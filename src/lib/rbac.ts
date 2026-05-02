@@ -2,9 +2,9 @@ import type { UserRole } from "@/lib/auth";
 
 export const RoleLabel: Record<UserRole, string> = {
   admin: "Администратор",
+  director: "Директор",
   agronomist: "Агроном",
-  operator: "Оператор",
-  viewer: "Наблюдатель",
+  worker: "Рабочий",
 };
 
 export function hasRole(userRole: UserRole, allowed: UserRole[] | "any") {

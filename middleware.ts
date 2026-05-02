@@ -8,25 +8,28 @@ const PUBLIC_PATHS = [
   "/api/auth/logout",
 ];
 
-type RoleRule = { prefix: string; allowed: UserRole[] };
-
-// Правила доступа по разделам (будем расширять по мере добавления страниц).
-const ROLE_RULES: RoleRule[] = [
-  { prefix: "/users", allowed: ["admin"] }, // управление пользователями
-  { prefix: "/db", allowed: ["admin"] }, // просмотр таблиц БД (admin)
-  { prefix: "/sensor-entry", allowed: ["admin", "operator"] }, // ввод данных датчиков
-  { prefix: "/reports", allowed: ["admin", "agronomist", "viewer"] }, // оператору отчёты нельзя
-  { prefix: "/cultures", allowed: ["admin", "agronomist", "viewer"] }, // оператору культуры нельзя
-  { prefix: "/ai", allowed: ["admin", "agronomist", "viewer"] }, // оператору ИИ не нужен по ТЗ
-];
-
 function isPublicPath(pathname: string) {
   if (PUBLIC_PATHS.includes(pathname)) return true;
   if (pathname.startsWith("/_next")) return true;
   if (pathname.startsWith("/favicon")) return true;
   if (pathname.startsWith("/images")) return true;
+  /** Cron-роуты защищены своим секретом (без cookie). */
+  if (pathname.startsWith("/api/cron/")) return true;
   return false;
 }
+
+type RoleRule = { prefix: string; allowed: UserRole[] };
+
+// Правила доступа по разделам (будем расширять по мере добавления страниц).
+const ROLE_RULES: RoleRule[] = [
+  { prefix: "/api/admin", allowed: ["admin"] },
+  { prefix: "/users", allowed: ["admin"] }, // управление пользователями
+  { prefix: "/db", allowed: ["admin"] }, // просмотр таблиц БД (admin)
+  { prefix: "/sensor-entry", allowed: ["admin", "worker"] }, // ввод данных датчиков (план B)
+  { prefix: "/reports", allowed: ["admin", "agronomist", "director"] }, // отчёты: директор только просмотр
+  { prefix: "/cultures", allowed: ["admin", "agronomist", "director"] }, // культуры: директор только просмотр
+  { prefix: "/ai", allowed: ["admin", "agronomist", "director"] }, // директору можно рекомендации/аналитику
+];
 
 function allowedRolesForPath(pathname: string): UserRole[] | null {
   const rule = ROLE_RULES.find((r) => pathname === r.prefix || pathname.startsWith(`${r.prefix}/`));

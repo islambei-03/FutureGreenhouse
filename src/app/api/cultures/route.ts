@@ -24,7 +24,7 @@ const UpdateSchema = CreateSchema.partial().extend({
 });
 
 export async function GET(req: Request) {
-  const auth = await requireApiRoles(["admin", "agronomist", "viewer"]);
+  const auth = await requireApiRoles(["admin", "agronomist", "director"]);
   if (!auth.ok) return auth.response;
 
   const url = new URL(req.url);
@@ -57,7 +57,8 @@ export async function GET(req: Request) {
     ORDER BY c.id DESC
   `;
 
-  const rows = db().prepare(sql).all(params);
+  const rows =
+    Object.keys(params).length > 0 ? await db().prepare(sql).all(params) : await db().prepare(sql).all();
   return NextResponse.json({ ok: true, cultures: rows });
 }
 
@@ -74,7 +75,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const r = db()
+  const r = (await db()
     .prepare(
       `
       INSERT INTO cultures
@@ -92,9 +93,9 @@ export async function POST(req: Request) {
       humidity_norm: parsed.data.humidity_norm ?? null,
       stage: parsed.data.stage ?? "Рост",
       notes: parsed.data.notes ?? null,
-    }) as { lastInsertRowid: number };
+    })) as { lastInsertRowid: number };
 
-  auditLog({
+  await auditLog({
     actorUserId: Number(auth.user.id),
     action: "create",
     entity: "cultures",
@@ -131,16 +132,16 @@ export async function PUT(req: Request) {
     "stage",
     "notes",
   ] as const) {
-    if (k in parsed.data && (parsed.data as any)[k] !== undefined) {
+    if (k in parsed.data && (parsed.data as Record<string, unknown>)[k] !== undefined) {
       fields.push(`${k}=@${k}`);
-      params[k] = (parsed.data as any)[k] ?? null;
+      params[k] = (parsed.data as Record<string, unknown>)[k] ?? null;
     }
   }
 
   if (fields.length === 0) return NextResponse.json({ ok: true });
 
-  db().prepare(`UPDATE cultures SET ${fields.join(", ")} WHERE id=@id`).run(params);
-  auditLog({
+  await db().prepare(`UPDATE cultures SET ${fields.join(", ")} WHERE id=@id`).run(params);
+  await auditLog({
     actorUserId: Number(auth.user.id),
     action: "update",
     entity: "cultures",
@@ -160,8 +161,8 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ ok: false, error: await apiT("api.badId") }, { status: 400 });
   }
 
-  db().prepare("DELETE FROM cultures WHERE id = ?").run(id);
-  auditLog({
+  await db().prepare("DELETE FROM cultures WHERE id = ?").run(id);
+  await auditLog({
     actorUserId: Number(auth.user.id),
     action: "delete",
     entity: "cultures",
@@ -170,4 +171,3 @@ export async function DELETE(req: Request) {
   });
   return NextResponse.json({ ok: true });
 }
-

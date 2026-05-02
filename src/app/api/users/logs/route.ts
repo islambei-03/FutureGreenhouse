@@ -6,7 +6,7 @@ export async function GET() {
   const auth = await requireApiRoles(["admin"]);
   if (!auth.ok) return auth.response;
 
-  const rows = db()
+  const rows = (await db()
     .prepare(
       `
       SELECT
@@ -21,12 +21,11 @@ export async function GET() {
         u.role as user_role
       FROM action_logs l
       JOIN users u ON u.id = l.user_id
-      ORDER BY datetime(l.created_at) DESC
+      ORDER BY l.created_at DESC
       LIMIT 50
     `,
     )
-    .all();
+    .all()) as unknown[];
 
   return NextResponse.json({ ok: true, logs: rows });
 }
-

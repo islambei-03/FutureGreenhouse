@@ -16,7 +16,7 @@ const PostSchema = z.object({
   temperature: z.number(),
   humidity: z.number(),
   co2: z.number(),
-  recorded_at: z.string().optional(), // "YYYY-MM-DD HH:MM:SS"
+  recorded_at: z.string().optional(),
 });
 
 export async function GET(req: Request) {
@@ -37,11 +37,10 @@ export async function GET(req: Request) {
   }
 
   if (parsed.data.recent === "1") {
-    // История последних 10 записей текущего пользователя (оператор/админ)
-    if (auth.user.role !== "operator" && auth.user.role !== "admin") {
+    if (auth.user.role !== "worker" && auth.user.role !== "admin") {
       return NextResponse.json({ ok: false, error: await apiT("api.forbidden") }, { status: 403 });
     }
-    const rows = db()
+    const rows = (await db()
       .prepare(
         `
         SELECT
@@ -50,16 +49,16 @@ export async function GET(req: Request) {
         FROM sensor_data sd
         JOIN greenhouses g ON g.id = sd.greenhouse_id
         WHERE sd.recorded_by_user_id = ?
-        ORDER BY datetime(sd.recorded_at) DESC
+        ORDER BY sd.recorded_at DESC
         LIMIT 10
       `,
       )
-      .all(Number(auth.user.id));
+      .all(Number(auth.user.id))) as unknown[];
 
     return NextResponse.json({ ok: true, recent: rows });
   }
 
-  const current = db()
+  const current = (await db()
     .prepare(
       `
       SELECT
@@ -99,7 +98,7 @@ export async function GET(req: Request) {
       ORDER BY g.id ASC
     `,
     )
-    .all() as Array<{
+    .all()) as Array<{
     id: number;
     name: string;
     temperature: number | null;
@@ -111,13 +110,13 @@ export async function GET(req: Request) {
   const greenhouse_id = parsed.data.greenhouse_id ?? (current[0]?.id as number | undefined);
   const range = parsed.data.range ?? "day";
 
-  let history: any[] = [];
+  let history: unknown[] = [];
   if (greenhouse_id) {
     const where =
       range === "day"
-        ? "sd.recorded_at >= datetime('now', '-1 day')"
-        : "sd.recorded_at >= datetime('now', '-7 day')";
-    history = db()
+        ? "sd.recorded_at >= (NOW() AT TIME ZONE 'UTC' - interval '1 day')"
+        : "sd.recorded_at >= (NOW() AT TIME ZONE 'UTC' - interval '7 day')";
+    history = (await db()
       .prepare(
         `
         SELECT id, greenhouse_id, temperature, humidity, co2, recorded_at
@@ -126,14 +125,30 @@ export async function GET(req: Request) {
         ORDER BY sd.recorded_at ASC
       `,
       )
-      .all(greenhouse_id);
+      .all(greenhouse_id)) as unknown[];
+
+    /** Если за период пусто — показываем последние точки, чтобы график не был «пустым». */
+    if (history.length === 0) {
+      history = (await db()
+        .prepare(
+          `
+          SELECT id, greenhouse_id, temperature, humidity, co2, recorded_at
+          FROM sensor_data sd
+          WHERE sd.greenhouse_id = ?
+          ORDER BY sd.recorded_at DESC
+          LIMIT 72
+        `,
+        )
+        .all(greenhouse_id)) as unknown[];
+      history.reverse();
+    }
   }
 
   return NextResponse.json({ ok: true, current, selected: greenhouse_id ?? null, range, history });
 }
 
 export async function POST(req: Request) {
-  const auth = await requireApiRoles(["admin", "operator"]);
+  const auth = await requireApiRoles(["admin", "worker"]);
   if (!auth.ok) return auth.response;
 
   const json = await req.json().catch(() => null);
@@ -150,12 +165,12 @@ export async function POST(req: Request) {
     parsed.data.recorded_at?.trim() ||
     new Date().toISOString().slice(0, 19).replace("T", " ");
 
-  const gh = db()
+  const gh = (await db()
     .prepare(
       `SELECT id, name, temp_min, temp_max, humidity_min, humidity_max
        FROM greenhouses WHERE id = ?`,
     )
-    .get(greenhouse_id) as
+    .get(greenhouse_id)) as
     | {
         id: number;
         name: string;
@@ -168,21 +183,24 @@ export async function POST(req: Request) {
 
   if (!gh) return NextResponse.json({ ok: false, error: await apiT("api.greenhouseNotFound") }, { status: 404 });
 
-  const tx = db().transaction(() => {
-    db()
+  await db().transaction(async (tx) => {
+    await tx
       .prepare(
         `INSERT INTO sensor_data (greenhouse_id, temperature, humidity, co2, recorded_at, recorded_by_user_id)
          VALUES (?, ?, ?, ?, ?, ?)`,
       )
       .run(greenhouse_id, temperature, humidity, co2, recorded_at, Number(auth.user.id));
 
-    auditLog({
-      actorUserId: Number(auth.user.id),
-      action: "record",
-      entity: "sensor_data",
-      entityId: null,
-      details: `Записаны показания для теплицы #${greenhouse_id}: T=${temperature}, H=${humidity}, CO2=${co2} @ ${recorded_at}`,
-    });
+    await auditLog(
+      {
+        actorUserId: Number(auth.user.id),
+        action: "record",
+        entity: "sensor_data",
+        entityId: null,
+        details: `Записаны показания для теплицы #${greenhouse_id}: T=${temperature}, H=${humidity}, CO2=${co2} @ ${recorded_at}`,
+      },
+      tx,
+    );
 
     const tempBad = temperature < gh.temp_min || temperature > gh.temp_max;
     const humBad = humidity < gh.humidity_min || humidity > gh.humidity_max;
@@ -193,21 +211,14 @@ export async function POST(req: Request) {
       if (tempBad) parts.push(`Температура вне нормы: ${temperature}°C (норма ${gh.temp_min}–${gh.temp_max}°C)`);
       if (humBad) parts.push(`Влажность вне нормы: ${humidity}% (норма ${gh.humidity_min}–${gh.humidity_max}%)`);
 
-      db()
+      await tx
         .prepare(
           `INSERT INTO notifications (title, message, type, is_read, created_at)
-           VALUES (?, ?, ?, 0, datetime('now'))`,
+           VALUES (?, ?, ?, 0, now())`,
         )
-        .run(
-          "Отклонение параметров",
-          `${gh.name}: ${parts.join(" · ")}`,
-          type,
-        );
+        .run("Отклонение параметров", `${gh.name}: ${parts.join(" · ")}`, type);
     }
   });
 
-  tx();
-
   return NextResponse.json({ ok: true });
 }
-

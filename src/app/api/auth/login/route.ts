@@ -20,19 +20,19 @@ export async function POST(req: Request) {
   }
 
   const { login, password } = parsed.data;
-  const user = db()
+  const user = (await db()
     .prepare(
       `SELECT id, full_name, login, password_hash, role, is_active
        FROM users
        WHERE login = ?`,
     )
-    .get(login) as
+    .get(login)) as
     | {
         id: number;
         full_name: string;
         login: string;
         password_hash: string;
-        role: "admin" | "agronomist" | "operator" | "viewer";
+        role: "admin" | "director" | "agronomist" | "worker";
         is_active: number;
       }
     | undefined;
@@ -52,9 +52,11 @@ export async function POST(req: Request) {
     null;
   const ua = req.headers.get("user-agent") || null;
 
-  db().prepare("UPDATE users SET last_login = datetime('now') WHERE id = ?").run(user.id);
-  db().prepare("INSERT INTO login_history (user_id, ip, user_agent) VALUES (?, ?, ?)").run(user.id, ip, ua);
-  db()
+  await db().prepare(`UPDATE users SET last_login = now() WHERE id = ?`).run(user.id);
+  await db()
+    .prepare("INSERT INTO login_history (user_id, ip, user_agent) VALUES (?, ?, ?)")
+    .run(user.id, ip, ua);
+  await db()
     .prepare(
       `INSERT INTO action_logs (user_id, action, entity, entity_id, details)
        VALUES (?, 'login', 'users', ?, ?)`,
@@ -71,4 +73,3 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ ok: true });
 }
-

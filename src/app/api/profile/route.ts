@@ -13,7 +13,7 @@ export async function GET() {
   const auth = await requireApiRoles("any");
   if (!auth.ok) return auth.response;
 
-  const me = db()
+  const me = (await db()
     .prepare(
       `
       SELECT id, full_name, login, role, is_active, last_login, totp_enabled
@@ -21,7 +21,7 @@ export async function GET() {
       WHERE id = ?
     `,
     )
-    .get(Number(auth.user.id)) as
+    .get(Number(auth.user.id))) as
     | {
         id: number;
         full_name: string;
@@ -37,17 +37,17 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: await apiT("api.badId") }, { status: 404 });
   }
 
-  const logins = db()
+  const logins = (await db()
     .prepare(
       `
       SELECT id, ip, user_agent, created_at
       FROM login_history
       WHERE user_id = ?
-      ORDER BY datetime(created_at) DESC
+      ORDER BY created_at DESC
       LIMIT 10
     `,
     )
-    .all(me.id) as Array<{ id: number; ip: string | null; user_agent: string | null; created_at: string }>;
+    .all(me.id)) as Array<{ id: number; ip: string | null; user_agent: string | null; created_at: string }>;
 
   return NextResponse.json({
     ok: true,
@@ -73,9 +73,11 @@ export async function PUT(req: Request) {
     return NextResponse.json({ ok: false, error: await apiT("api.badData") }, { status: 400 });
   }
 
-  db().prepare(`UPDATE users SET full_name = ? WHERE id = ?`).run(parsed.data.full_name.trim(), Number(auth.user.id));
+  await db()
+    .prepare(`UPDATE users SET full_name = ? WHERE id = ?`)
+    .run(parsed.data.full_name.trim(), Number(auth.user.id));
 
-  auditLog({
+  await auditLog({
     actorUserId: Number(auth.user.id),
     action: "update",
     entity: "profile",
@@ -85,4 +87,3 @@ export async function PUT(req: Request) {
 
   return NextResponse.json({ ok: true });
 }
-

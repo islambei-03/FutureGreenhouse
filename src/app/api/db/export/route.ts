@@ -35,22 +35,31 @@ function quoteIdent(raw: string) {
   return `"${raw.replaceAll('"', '""')}"`;
 }
 
-function listTables(): string[] {
-  const rows = db()
+async function listTables(): Promise<string[]> {
+  const rows = (await db()
     .prepare(
       `
-      SELECT name
-      FROM sqlite_master
-      WHERE type='table' AND name NOT LIKE 'sqlite_%'
-      ORDER BY name ASC
+      SELECT table_name AS name
+      FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+      ORDER BY table_name ASC
     `,
     )
-    .all() as Array<{ name: string }>;
+    .all()) as Array<{ name: string }>;
   return rows.map((r) => r.name);
 }
 
-function getColumns(table: string) {
-  const cols = db().prepare(`PRAGMA table_info(${quoteIdent(table)})`).all() as Array<{
+async function getColumns(table: string) {
+  const cols = (await db()
+    .prepare(
+      `
+      SELECT column_name as name, data_type as type
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = ?
+      ORDER BY ordinal_position
+    `,
+    )
+    .all(table)) as Array<{
     name: string;
     type: string;
   }>;
@@ -61,7 +70,7 @@ function safeOrderBy(columns: Array<{ name: string }>, sort?: string, dir?: "asc
   const direction = dir === "asc" ? "ASC" : "DESC";
   if (sort && columns.some((c) => c.name === sort)) return `ORDER BY ${quoteIdent(sort)} ${direction}`;
   if (columns.some((c) => c.name === "id")) return `ORDER BY ${quoteIdent("id")} DESC`;
-  return `ORDER BY rowid DESC`;
+  return `ORDER BY 1 DESC`;
 }
 
 function buildWhere(opts: { columns: Array<{ name: string; type: string }>; q?: string; filters: Array<z.infer<typeof FilterSchema>> }) {
@@ -71,7 +80,7 @@ function buildWhere(opts: { columns: Array<{ name: string; type: string }>; q?: 
   const q = opts.q?.trim();
   if (q) {
     const likeableCols = opts.columns
-      .filter((c) => (c.type || "").toLowerCase().includes("char") || (c.type || "").toLowerCase().includes("text"))
+      .filter((c) => (c.type || "").toLowerCase().includes("character") || (c.type || "").toLowerCase().includes("text"))
       .map((c) => c.name);
     if (likeableCols.length) {
       const or = likeableCols.map((c) => `CAST(${quoteIdent(c)} AS TEXT) LIKE ?`).join(" OR ");
@@ -138,19 +147,19 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: parsed.error.issues[0]?.message ?? (await apiT("api.badParams")) }, { status: 400 });
   }
 
-  const tables = listTables();
+  const tables = await listTables();
   const table = parsed.data.table;
   if (!tables.includes(table)) {
     return NextResponse.json({ ok: false, error: await apiT("api.badParams") }, { status: 400 });
   }
 
-  const columns = getColumns(table);
+  const columns = await getColumns(table);
   const orderBy = safeOrderBy(columns, parsed.data.sort, parsed.data.dir);
   const { whereSql, params } = buildWhere({ columns, q: parsed.data.q, filters: parsed.data.filters });
 
-  const rows = db()
+  const rows = (await db()
     .prepare(`SELECT * FROM ${quoteIdent(table)} ${whereSql} ${orderBy} LIMIT 5000`)
-    .all(...params) as Record<string, unknown>[];
+    .all(...params)) as Record<string, unknown>[];
 
   const header = columns.map((c) => csvEscape(c.name)).join(",");
   const lines = rows.map((r) => columns.map((c) => csvEscape(r[c.name])).join(","));
@@ -164,4 +173,3 @@ export async function GET(req: Request) {
     },
   });
 }
-

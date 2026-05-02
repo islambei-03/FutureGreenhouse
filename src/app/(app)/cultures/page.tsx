@@ -77,7 +77,7 @@ function Modal({
 
 export default function CulturesPage() {
   const me = useMe();
-  const role: UserRole = me?.role ?? "viewer";
+  const role: UserRole = me?.role ?? "director";
   const { t: tr } = useI18n();
 
   const FormSchema = useMemo(
@@ -123,8 +123,11 @@ export default function CulturesPage() {
     setLoading(true);
     try {
       const gRes = await fetch("/api/greenhouses", { cache: "no-store" });
-      const g = (await gRes.json().catch(() => null)) as null | { ok: boolean; greenhouses: any[] };
-      if (g?.ok) setGreenhouses((g.greenhouses as any[]).map((x) => ({ id: x.id, name: x.name })));
+      const g = (await gRes.json().catch(() => null)) as
+        | null
+        | { ok: true; greenhouses: Array<{ id: number; name: string }> }
+        | { ok: false; error?: string };
+      if (g?.ok) setGreenhouses(g.greenhouses.map((x) => ({ id: x.id, name: x.name })));
     } finally {
       setLoading(false);
     }
@@ -452,7 +455,7 @@ export default function CulturesPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
               <select
                 value={form.stage}
-                onChange={(e) => setForm((v) => ({ ...v, stage: e.target.value as any }))}
+                onChange={(e) => setForm((v) => ({ ...v, stage: e.target.value as CultureRow["stage"] }))}
                 className="w-full rounded-xl bg-black/20 border border-[var(--border)] px-4 py-3 outline-none focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent)]/20 transition md:col-span-1"
               >
                 {StageOrder.map((s) => (

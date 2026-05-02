@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/I18nContext";
+import type { I18nKey } from "@/lib/i18n";
 
 type ChatRow = {
   id: number;
@@ -12,7 +13,7 @@ type ChatRow = {
 
 type Quick = { label: string; prompt: string };
 
-function quick(locale: "ru" | "kk", t: (k: any) => string): Quick[] {
+function quick(locale: "ru" | "kk", t: (k: I18nKey) => string): Quick[] {
   if (locale === "kk") {
     return [
       { label: t("ai.quick.careTomatoes"), prompt: "Осы аптаға жылыжайдағы қызанақ күтімі бойынша қысқа жоспар бер." },
@@ -81,9 +82,12 @@ export default function AiPage() {
     (async () => {
       try {
         const res = await fetch("/api/greenhouses", { cache: "no-store" });
-        const data = (await res.json().catch(() => null)) as any;
-        if (data?.ok && Array.isArray(data.greenhouses)) {
-          setGreenhouses(data.greenhouses.map((g: any) => ({ id: g.id, name: g.name })));
+        const data = (await res.json().catch(() => null)) as
+          | null
+          | { ok: true; greenhouses: Array<{ id: number; name: string }> }
+          | { ok: false; error?: string };
+        if (data?.ok) {
+          setGreenhouses(data.greenhouses.map((g) => ({ id: g.id, name: g.name })));
         }
       } catch {
         // ignore

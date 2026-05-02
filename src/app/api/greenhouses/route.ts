@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { requireApiRoles } from "@/lib/api/rbac";
 import { auditLog } from "@/lib/audit";
 import { apiT } from "@/lib/api/i18n";
+import { listGreenhousesWithStatus } from "@/lib/repo/greenhouses";
 
 const CreateSchema = z.object({
   name: z.string().min(2, "Введите название"),
@@ -26,51 +27,7 @@ export async function GET() {
   const auth = await requireApiRoles("any");
   if (!auth.ok) return auth.response;
 
-  const rows = db()
-    .prepare(
-      `
-      SELECT
-        g.*,
-        e.full_name as responsible_name,
-        (
-          SELECT group_concat(c.name, '||')
-          FROM cultures c
-          WHERE c.greenhouse_id = g.id
-        ) as culture_names,
-        (
-          SELECT sd.temperature
-          FROM sensor_data sd
-          WHERE sd.greenhouse_id = g.id
-          ORDER BY sd.recorded_at DESC
-          LIMIT 1
-        ) as temperature,
-        (
-          SELECT sd.humidity
-          FROM sensor_data sd
-          WHERE sd.greenhouse_id = g.id
-          ORDER BY sd.recorded_at DESC
-          LIMIT 1
-        ) as humidity,
-        (
-          SELECT sd.co2
-          FROM sensor_data sd
-          WHERE sd.greenhouse_id = g.id
-          ORDER BY sd.recorded_at DESC
-          LIMIT 1
-        ) as co2,
-        (
-          SELECT ws.scheduled_at
-          FROM watering_schedule ws
-          WHERE ws.greenhouse_id = g.id AND ws.is_done = 0
-          ORDER BY ws.scheduled_at ASC
-          LIMIT 1
-        ) as next_watering_at
-      FROM greenhouses g
-      LEFT JOIN employees e ON e.id = g.responsible_employee_id
-      ORDER BY g.id ASC
-    `,
-    )
-    .all() as Array<Record<string, unknown>>;
+  const rows = await listGreenhousesWithStatus();
 
   const data = rows.map((r) => ({
     ...r,
@@ -96,7 +53,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const r = db()
+  const r = (await db()
     .prepare(
       `
     INSERT INTO greenhouses
@@ -110,9 +67,9 @@ export async function POST(req: Request) {
       status: parsed.data.status ?? "активна",
       notes: parsed.data.notes ?? null,
       responsible_employee_id: parsed.data.responsible_employee_id ?? null,
-    }) as { lastInsertRowid: number };
+    })) as { lastInsertRowid: number };
 
-  auditLog({
+  await auditLog({
     actorUserId: Number(auth.user.id),
     action: "create",
     entity: "greenhouses",
@@ -136,7 +93,7 @@ export async function PUT(req: Request) {
     );
   }
 
-  db()
+  await db()
     .prepare(
       `
     UPDATE greenhouses SET
@@ -160,7 +117,7 @@ export async function PUT(req: Request) {
       responsible_employee_id: parsed.data.responsible_employee_id ?? null,
     });
 
-  auditLog({
+  await auditLog({
     actorUserId: Number(auth.user.id),
     action: "update",
     entity: "greenhouses",
@@ -181,8 +138,7 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ ok: false, error: await apiT("api.badId") }, { status: 400 });
   }
 
-  db().prepare("DELETE FROM greenhouses WHERE id = ?").run(id);
-  auditLog({ actorUserId: Number(auth.user.id), action: "delete", entity: "greenhouses", entityId: id, details: `Удалена теплица #${id}` });
+  await db().prepare("DELETE FROM greenhouses WHERE id = ?").run(id);
+  await auditLog({ actorUserId: Number(auth.user.id), action: "delete", entity: "greenhouses", entityId: id, details: `Удалена теплица #${id}` });
   return NextResponse.json({ ok: true });
 }
-

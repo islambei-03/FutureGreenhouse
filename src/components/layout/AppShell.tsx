@@ -27,7 +27,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const role = useMemo<UserRole>(() => {
     if (me && me.ok) return me.user.role;
-    return "viewer";
+    // До загрузки /api/auth/me показываем самый "безопасный" read-only профиль
+    return "director";
   }, [me]);
 
   const fullName = useMemo(() => {

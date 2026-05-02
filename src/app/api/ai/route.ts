@@ -10,8 +10,8 @@ const BodySchema = z.object({
   greenhouse_id: z.number().int().positive().nullable().optional(),
 });
 
-function buildGreenhouseContext() {
-  const rows = db()
+async function buildGreenhouseContext() {
+  const rows = (await db()
     .prepare(
       `
       SELECT
@@ -42,7 +42,7 @@ function buildGreenhouseContext() {
           LIMIT 1
         ) as co2,
         (
-          SELECT group_concat(c.name, ', ')
+          SELECT string_agg(c.name, ', ' ORDER BY c.id)
           FROM cultures c
           WHERE c.greenhouse_id = g.id
         ) as cultures
@@ -50,7 +50,7 @@ function buildGreenhouseContext() {
       ORDER BY g.id ASC
     `,
     )
-    .all() as Array<Record<string, any>>;
+    .all()) as Array<Record<string, unknown>>;
 
   const lines = rows.map((r) => {
     const t = r.temperature ?? "—";
@@ -69,8 +69,8 @@ function buildGreenhouseContext() {
   return `Текущие данные теплиц:\n${lines.join("\n")}`;
 }
 
-function buildSingleGreenhouseContext(greenhouseId: number) {
-  const g = db()
+async function buildSingleGreenhouseContext(greenhouseId: number) {
+  const g = (await db()
     .prepare(
       `
       SELECT id, name, status, temp_min, temp_max, humidity_min, humidity_max
@@ -78,7 +78,7 @@ function buildSingleGreenhouseContext(greenhouseId: number) {
       WHERE id = ?
     `,
     )
-    .get(greenhouseId) as
+    .get(greenhouseId)) as
     | {
         id: number;
         name: string;
@@ -92,7 +92,7 @@ function buildSingleGreenhouseContext(greenhouseId: number) {
 
   if (!g) return null;
 
-  const sensor = db()
+  const sensor = (await db()
     .prepare(
       `
       SELECT temperature, humidity, co2, recorded_at
@@ -102,24 +102,24 @@ function buildSingleGreenhouseContext(greenhouseId: number) {
       LIMIT 1
     `,
     )
-    .get(greenhouseId) as { temperature: number | null; humidity: number | null; co2: number | null; recorded_at: string } | undefined;
+    .get(greenhouseId)) as { temperature: number | null; humidity: number | null; co2: number | null; recorded_at: string } | undefined;
 
-  const nextWatering = db()
+  const nextWatering = (await db()
     .prepare(
       `
-      SELECT type, scheduled_at, duration_min, volume_l, status
+      SELECT watering_type, scheduled_at, duration_minutes, volume_liters, is_done
       FROM watering_schedule
       WHERE greenhouse_id = ?
-        AND status != 'выполнен'
+        AND is_done = 0
       ORDER BY scheduled_at ASC
       LIMIT 1
     `,
     )
-    .get(greenhouseId) as
-    | { type: string; scheduled_at: string; duration_min: number | null; volume_l: number | null; status: string }
+    .get(greenhouseId)) as
+    | { watering_type: string; scheduled_at: string; duration_minutes: number; volume_liters: number; is_done: number }
     | undefined;
 
-  const tasks = db()
+  const tasks = (await db()
     .prepare(
       `
       SELECT title, priority, deadline, is_completed
@@ -127,29 +127,28 @@ function buildSingleGreenhouseContext(greenhouseId: number) {
       WHERE greenhouse_id = ?
       ORDER BY
         CASE priority
-          WHEN 'срочно' THEN 0
+          WHEN 'срочный' THEN 0
           WHEN 'высокий' THEN 1
-          WHEN 'средний' THEN 2
-          WHEN 'низкий' THEN 3
+          WHEN 'обычный' THEN 2
           ELSE 9
         END ASC,
         COALESCE(deadline, '9999-12-31') ASC
       LIMIT 8
     `,
     )
-    .all(greenhouseId) as Array<{ title: string; priority: string; deadline: string | null; is_completed: number }>;
+    .all(greenhouseId)) as Array<{ title: string; priority: string; deadline: string | null; is_completed: number }>;
 
-  const cultures = db()
+  const cultures = (await db()
     .prepare(
       `
-      SELECT name, stage, progress
+      SELECT name, stage, notes
       FROM cultures
       WHERE greenhouse_id = ?
       ORDER BY id DESC
       LIMIT 10
     `,
     )
-    .all(greenhouseId) as Array<{ name: string; stage: string; progress: number | null }>;
+    .all(greenhouseId)) as Array<{ name: string; stage: string; notes: string | null }>;
 
   const lines = [
     `Выбранная теплица: ${g.name} (ID ${g.id}, статус: ${g.status})`,
@@ -162,13 +161,13 @@ function buildSingleGreenhouseContext(greenhouseId: number) {
     }`,
     `Ближайший полив: ${
       nextWatering
-        ? `${nextWatering.type} · ${nextWatering.scheduled_at} · ${nextWatering.duration_min ?? "—"} мин · ${nextWatering.volume_l ?? "—"} л · статус: ${nextWatering.status}`
+        ? `${nextWatering.watering_type} · ${nextWatering.scheduled_at} · ${nextWatering.duration_minutes} мин · ${nextWatering.volume_liters} л · выполнено: ${nextWatering.is_done}`
         : "нет запланированных"
     }`,
     "",
     `Культуры: ${
       cultures.length
-        ? cultures.map((c) => `${c.name} (${c.stage}${c.progress != null ? `, ${c.progress}%` : ""})`).join("; ")
+        ? cultures.map((c) => `${c.name} (${c.stage}${c.notes ? `, ${c.notes}` : ""})`).join("; ")
         : "—"
     }`,
     `Задачи: ${
@@ -184,25 +183,25 @@ function buildSingleGreenhouseContext(greenhouseId: number) {
 }
 
 export async function GET() {
-  const auth = await requireApiRoles(["admin", "agronomist", "viewer"]);
+  const auth = await requireApiRoles(["admin", "agronomist", "director"]);
   if (!auth.ok) return auth.response;
 
-  const rows = db()
+  const rows = (await db()
     .prepare(
       `
       SELECT id, role, content, created_at
       FROM ai_chat_history
-      ORDER BY datetime(created_at) ASC
+      ORDER BY created_at ASC
       LIMIT 200
     `,
     )
-    .all();
+    .all()) as unknown[];
 
   return NextResponse.json({ ok: true, messages: rows });
 }
 
 export async function POST(req: Request) {
-  const auth = await requireApiRoles(["admin", "agronomist", "viewer"]);
+  const auth = await requireApiRoles(["admin", "agronomist", "director"]);
   if (!auth.ok) return auth.response;
 
   const json = await req.json().catch(() => null);
@@ -223,26 +222,26 @@ export async function POST(req: Request) {
 
   const userMessage = parsed.data.message.trim();
   const ghId = parsed.data.greenhouse_id ?? null;
-  const selectedContext = ghId ? buildSingleGreenhouseContext(ghId) : null;
+  const selectedContext = ghId ? await buildSingleGreenhouseContext(ghId) : null;
 
   const systemPrompt = [
     "Ты агроном-эксперт системы Future Greenhouse.",
     "Отвечай на русском языке, коротко и практично.",
     "Если данных недостаточно — уточняй, какие параметры нужны.",
     "",
-    selectedContext ? selectedContext : buildGreenhouseContext(),
+    selectedContext ? selectedContext : await buildGreenhouseContext(),
   ].join("\n");
 
-  const history = db()
+  const history = (await db()
     .prepare(
       `
       SELECT role, content
       FROM ai_chat_history
-      ORDER BY datetime(created_at) ASC
+      ORDER BY created_at ASC
       LIMIT 40
     `,
     )
-    .all() as Array<{ role: "system" | "user" | "assistant"; content: string }>;
+    .all()) as Array<{ role: "system" | "user" | "assistant"; content: string }>;
 
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: "system", content: systemPrompt },
@@ -250,10 +249,7 @@ export async function POST(req: Request) {
     { role: "user", content: userMessage },
   ];
 
-  const tx = db().transaction(() => {
-    db().prepare(`INSERT INTO ai_chat_history (role, content) VALUES ('user', ?)`).run(userMessage);
-  });
-  tx();
+  await db().prepare(`INSERT INTO ai_chat_history (role, content) VALUES ('user', ?)`).run(userMessage);
 
   const completion = await client.chat.completions.create({
     model: "gpt-4o-mini",
@@ -263,8 +259,7 @@ export async function POST(req: Request) {
 
   const assistantMessage = completion.choices[0]?.message?.content?.trim() || "Не смог сформировать ответ. Попробуйте переформулировать вопрос.";
 
-  db().prepare(`INSERT INTO ai_chat_history (role, content) VALUES ('assistant', ?)`).run(assistantMessage);
+  await db().prepare(`INSERT INTO ai_chat_history (role, content) VALUES ('assistant', ?)`).run(assistantMessage);
 
   return NextResponse.json({ ok: true, reply: assistantMessage });
 }
-

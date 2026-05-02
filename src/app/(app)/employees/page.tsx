@@ -83,7 +83,7 @@ function Modal({
 
 export default function EmployeesPage() {
   const me = useMe();
-  const role: UserRole = me?.role ?? "viewer";
+  const role: UserRole = me?.role ?? "director";
   const { t: tr } = useI18n();
 
   const FormSchema = useMemo(
@@ -127,9 +127,12 @@ export default function EmployeesPage() {
         fetch("/api/greenhouses", { cache: "no-store" }),
       ]);
       const e = (await eRes.json().catch(() => null)) as null | { ok: boolean; employees: EmployeeRow[] };
-      const g = (await gRes.json().catch(() => null)) as null | { ok: boolean; greenhouses: any[] };
+      const g = (await gRes.json().catch(() => null)) as
+        | null
+        | { ok: true; greenhouses: Array<{ id: number; name: string }> }
+        | { ok: false; error?: string };
       if (e?.ok) setItems(e.employees);
-      if (g?.ok) setGreenhouses((g.greenhouses as any[]).map((x) => ({ id: x.id, name: x.name })));
+      if (g?.ok) setGreenhouses(g.greenhouses.map((x) => ({ id: x.id, name: x.name })));
     } finally {
       setLoading(false);
     }
@@ -249,7 +252,7 @@ export default function EmployeesPage() {
             {(["all", "на смене", "перерыв", "больничный", "выходной"] as const).map((s) => (
               <button
                 key={s}
-                onClick={() => setFilter(s as any)}
+                onClick={() => setFilter(s)}
                 className={[
                   "rounded-xl px-3 py-2 text-sm border transition",
                   filter === s

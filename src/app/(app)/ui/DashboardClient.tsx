@@ -2,6 +2,39 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/I18nContext";
+import type { I18nKey } from "@/lib/i18n";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+} from "chart.js";
+import type { ChartData, ChartOptions } from "chart.js";
+import { Bar, Doughnut, Line } from "react-chartjs-2";
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+);
+
+const PERIOD_I18N = {
+  day: "dashboard.period.day",
+  week: "dashboard.period.week",
+  month: "dashboard.period.month",
+} as const satisfies Record<"day" | "week" | "month", I18nKey>;
 
 type GreenhouseRow = {
   id: number;
@@ -25,6 +58,20 @@ type TaskRow = {
   assigned_name: string | null;
   greenhouse_name: string | null;
 };
+
+type GreenhousesApi = { ok: true; greenhouses: GreenhouseRow[] } | { ok: false; error?: string };
+type TasksApi = { ok: true; tasks: TaskRow[] } | { ok: false; error?: string };
+type KpiApi =
+  | {
+      ok: true;
+      kpi: { activeGreenhouses: number; avgTemp: number | null; cultures: number; staffToday: number; tasksTotal: number; tasksDone: number };
+      series: {
+        waterDaily: Array<{ day: string; liters: number }>;
+        tasksDaily: Array<{ day: string; total: number; done: number }>;
+        sensorsDaily: Array<{ day: string; avgTemp: number | null; avgHum: number | null }>;
+      };
+    }
+  | { ok: false; error?: string };
 
 function clampBadge(value: number | null, min: number, max: number) {
   if (value === null || Number.isNaN(value)) return "bg-zinc-500/20 text-zinc-200 border-zinc-500/30";
@@ -69,7 +116,7 @@ function useCountUp(target: number, opts?: { durationMs?: number; decimals?: num
       if (t < 1) raf = requestAnimationFrame(tick);
     }
 
-    setValue(0);
+    // Инициализацию делаем через RAF, чтобы не ловить react-hooks/set-state-in-effect.
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [target, durationMs, decimals]);
@@ -90,37 +137,49 @@ export default function DashboardClient() {
     tasksTotal: number;
     tasksDone: number;
   } | null>(null);
+  const [series, setSeries] = useState<{
+    waterDaily: Array<{ day: string; liters: number }>;
+    tasksDaily: Array<{ day: string; total: number; done: number }>;
+    sensorsDaily: Array<{ day: string; avgTemp: number | null; avgHum: number | null }>;
+  } | null>(null);
 
   async function load() {
     const [gRes, tRes] = await Promise.all([
       fetch("/api/greenhouses", { cache: "no-store" }),
       fetch("/api/tasks?today=1", { cache: "no-store" }),
     ]);
-    const g = (await gRes.json().catch(() => null)) as null | { ok: boolean; greenhouses: any[] };
-    const t = (await tRes.json().catch(() => null)) as null | { ok: boolean; tasks: TaskRow[] };
-    if (g?.ok) setGreenhouses(g.greenhouses as GreenhouseRow[]);
+    const g = (await gRes.json().catch(() => null)) as GreenhousesApi | null;
+    const t = (await tRes.json().catch(() => null)) as TasksApi | null;
+    if (g?.ok) setGreenhouses(g.greenhouses);
     if (t?.ok) setTasks(t.tasks);
   }
 
   async function loadKpi(p: "day" | "week" | "month") {
     const res = await fetch(`/api/kpi?period=${p}`, { cache: "no-store" });
-    const data = (await res.json().catch(() => null)) as
-      | null
-      | { ok: true; kpi: any }
-      | { ok: false; error?: string };
-    if (data && (data as any).ok) setKpiFromDb((data as any).kpi);
+    const data = (await res.json().catch(() => null)) as KpiApi | null;
+    if (data?.ok) {
+      setKpiFromDb(data.kpi);
+      setSeries(data.series);
+    }
   }
 
   useEffect(() => {
-    load();
-    loadKpi("week");
+    const t = setTimeout(() => {
+      void load();
+      void loadKpi("week");
+    }, 0);
     const id = setInterval(load, 30_000);
-    return () => clearInterval(id);
+    return () => {
+      clearTimeout(t);
+      clearInterval(id);
+    };
   }, []);
 
   useEffect(() => {
-    loadKpi(period);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const t = setTimeout(() => {
+      void loadKpi(period);
+    }, 0);
+    return () => clearTimeout(t);
   }, [period]);
 
   const alerts = useMemo(() => {
@@ -167,6 +226,170 @@ export default function DashboardClient() {
   const culturesAnim = useCountUp(kpi.cultures, { durationMs: 900, decimals: 0 });
   const staffAnim = useCountUp(kpi.todayStaff, { durationMs: 950, decimals: 0 });
   const avgTempAnim = useCountUp(kpi.avgTemp ?? 0, { durationMs: 900, decimals: 1 });
+
+  const chartOptions = useMemo<ChartOptions<"bar">>(
+    () => ({
+      responsive: true,
+      plugins: { legend: { display: true, labels: { color: "rgba(232,245,238,0.8)" } }, tooltip: { enabled: true } },
+      scales: {
+        x: { ticks: { color: "rgba(232,245,238,0.6)" }, grid: { color: "rgba(232,245,238,0.08)" } },
+        y: { ticks: { color: "rgba(232,245,238,0.6)" }, grid: { color: "rgba(232,245,238,0.08)" } },
+      },
+    }),
+    [],
+  );
+
+  const lineOptions = useMemo<ChartOptions<"line">>(
+    () => ({
+      responsive: true,
+      plugins: { legend: { display: true, labels: { color: "rgba(232,245,238,0.8)" } }, tooltip: { enabled: true } },
+      scales: {
+        x: { ticks: { color: "rgba(232,245,238,0.6)" }, grid: { color: "rgba(232,245,238,0.08)" } },
+        y: { ticks: { color: "rgba(232,245,238,0.6)" }, grid: { color: "rgba(232,245,238,0.08)" } },
+      },
+    }),
+    [],
+  );
+
+  const horizontalBarOptions = useMemo<ChartOptions<"bar">>(
+    () => ({
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: true, labels: { color: "rgba(232,245,238,0.8)" } }, tooltip: { enabled: true } },
+      scales: {
+        x: { ticks: { color: "rgba(232,245,238,0.6)" }, grid: { color: "rgba(232,245,238,0.08)" } },
+        y: { ticks: { color: "rgba(232,245,238,0.6)" }, grid: { display: false } },
+      },
+    }),
+    [],
+  );
+
+  const doughnutOptions = useMemo<ChartOptions<"doughnut">>(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: "bottom", labels: { color: "rgba(232,245,238,0.8)" } },
+        tooltip: { enabled: true },
+      },
+    }),
+    [],
+  );
+
+  const waterData = useMemo<ChartData<"bar"> | null>(() => {
+    if (!series) return null;
+    return {
+      labels: series.waterDaily.map((r) => r.day.slice(5)),
+      datasets: [
+        {
+          label: tr("reports.kpi.water"),
+          data: series.waterDaily.map((r) => r.liters),
+          backgroundColor: "rgba(59,130,246,0.35)",
+          borderColor: "rgba(59,130,246,0.9)",
+          borderWidth: 1,
+        },
+      ],
+    };
+  }, [series, tr]);
+
+  const tasksData = useMemo<ChartData<"bar"> | null>(() => {
+    if (!series) return null;
+    return {
+      labels: series.tasksDaily.map((r) => r.day.slice(5)),
+      datasets: [
+        {
+          label: tr("tasks.title"),
+          data: series.tasksDaily.map((r) => r.total),
+          backgroundColor: "rgba(232,245,238,0.10)",
+          borderColor: "rgba(232,245,238,0.25)",
+          borderWidth: 1,
+        },
+        {
+          label: tr("reports.kpi.tasksCompletion"),
+          data: series.tasksDaily.map((r) => r.done),
+          backgroundColor: "rgba(34,197,94,0.35)",
+          borderColor: "rgba(34,197,94,0.9)",
+          borderWidth: 1,
+        },
+      ],
+    };
+  }, [series, tr]);
+
+  const sensorsData = useMemo<ChartData<"line"> | null>(() => {
+    if (!series) return null;
+    return {
+      labels: series.sensorsDaily.map((r) => r.day.slice(5)),
+      datasets: [
+        {
+          label: tr("dashboard.kpi.avgTemp"),
+          data: series.sensorsDaily.map((r) => (typeof r.avgTemp === "number" ? Number(r.avgTemp.toFixed(1)) : null)),
+          borderColor: "rgba(34,197,94,0.95)",
+          backgroundColor: "rgba(34,197,94,0.15)",
+          tension: 0.28,
+          pointRadius: 2,
+        },
+        {
+          label: tr("parameters.humidity"),
+          data: series.sensorsDaily.map((r) => (typeof r.avgHum === "number" ? Number(r.avgHum.toFixed(1)) : null)),
+          borderColor: "rgba(59,130,246,0.95)",
+          backgroundColor: "rgba(59,130,246,0.15)",
+          tension: 0.28,
+          pointRadius: 2,
+        },
+      ],
+    };
+  }, [series, tr]);
+
+  const tempByGreenhouseData = useMemo<ChartData<"bar"> | null>(() => {
+    const withTemp = greenhouses.filter((g): g is GreenhouseRow & { temperature: number } => typeof g.temperature === "number");
+    if (!withTemp.length) return null;
+    return {
+      labels: withTemp.map((g) => (g.name.length > 14 ? `${g.name.slice(0, 14)}…` : g.name)),
+      datasets: [
+        {
+          label: tr("dashboard.table.temperature"),
+          data: withTemp.map((g) => g.temperature),
+          backgroundColor: "rgba(34,197,94,0.35)",
+          borderColor: "rgba(34,197,94,0.9)",
+          borderWidth: 1,
+        },
+      ],
+    };
+  }, [greenhouses, tr]);
+
+  const co2ByGreenhouseData = useMemo<ChartData<"bar"> | null>(() => {
+    const withCo2 = greenhouses.filter((g): g is GreenhouseRow & { co2: number } => typeof g.co2 === "number");
+    if (!withCo2.length) return null;
+    return {
+      labels: withCo2.map((g) => (g.name.length > 14 ? `${g.name.slice(0, 14)}…` : g.name)),
+      datasets: [
+        {
+          label: tr("dashboard.table.co2"),
+          data: withCo2.map((g) => g.co2),
+          backgroundColor: "rgba(168,85,247,0.35)",
+          borderColor: "rgba(168,85,247,0.9)",
+          borderWidth: 1,
+        },
+      ],
+    };
+  }, [greenhouses, tr]);
+
+  const tasksSplitData = useMemo<ChartData<"doughnut"> | null>(() => {
+    if (!kpiFromDb || kpiFromDb.tasksTotal <= 0) return null;
+    const open = Math.max(0, kpiFromDb.tasksTotal - kpiFromDb.tasksDone);
+    return {
+      labels: [tr("dashboard.charts.tasksDone"), tr("dashboard.charts.tasksOpen")],
+      datasets: [
+        {
+          data: [kpiFromDb.tasksDone, open],
+          backgroundColor: ["rgba(34,197,94,0.75)", "rgba(232,245,238,0.12)"],
+          borderColor: ["rgba(34,197,94,0.95)", "rgba(232,245,238,0.3)"],
+          borderWidth: 1,
+        },
+      ],
+    };
+  }, [kpiFromDb, tr]);
 
   async function toggleTask(id: number, done: boolean) {
     await fetch("/api/tasks", {
@@ -221,7 +444,7 @@ export default function DashboardClient() {
         </div>
         <select
           value={period}
-          onChange={(e) => setPeriod(e.target.value as any)}
+          onChange={(e) => setPeriod(e.target.value as "day" | "week" | "month")}
           className="sm:w-56 rounded-xl bg-black/20 border border-[var(--border)] px-4 py-2.5 outline-none focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent)]/20 transition"
         >
           <option value="day">{tr("dashboard.period.day")}</option>
@@ -321,6 +544,60 @@ export default function DashboardClient() {
             {!tasks.length ? (
               <div className="text-sm text-[var(--muted)] p-2">{tr("dashboard.todayTasks.noTasks")}</div>
             ) : null}
+          </div>
+        </section>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
+          <div className="font-semibold">{tr("reports.kpi.water")}</div>
+          <div className="text-sm text-[var(--muted)] mt-1">{tr(PERIOD_I18N[period])}</div>
+          <div className="mt-4">{waterData ? <Bar options={chartOptions} data={waterData} /> : null}</div>
+        </section>
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
+          <div className="font-semibold">{tr("tasks.title")}</div>
+          <div className="text-sm text-[var(--muted)] mt-1">{tr(PERIOD_I18N[period])}</div>
+          <div className="mt-4">{tasksData ? <Bar options={chartOptions} data={tasksData} /> : null}</div>
+        </section>
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
+          <div className="font-semibold">{tr("parameters.title")}</div>
+          <div className="text-sm text-[var(--muted)] mt-1">{tr(PERIOD_I18N[period])}</div>
+          <div className="mt-4">{sensorsData ? <Line options={lineOptions} data={sensorsData} /> : null}</div>
+        </section>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
+          <div className="font-semibold">{tr("dashboard.charts.tempByGreenhouse")}</div>
+          <div className="text-sm text-[var(--muted)] mt-1">{tr(PERIOD_I18N[period])}</div>
+          <div className="mt-4 h-64">
+            {tempByGreenhouseData ? (
+              <Bar options={horizontalBarOptions} data={tempByGreenhouseData} />
+            ) : (
+              <div className="text-sm text-[var(--muted)] pt-8">{tr("common.notSpecified")}</div>
+            )}
+          </div>
+        </section>
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
+          <div className="font-semibold">{tr("dashboard.charts.co2ByGreenhouse")}</div>
+          <div className="text-sm text-[var(--muted)] mt-1">{tr(PERIOD_I18N[period])}</div>
+          <div className="mt-4 h-64">
+            {co2ByGreenhouseData ? (
+              <Bar options={horizontalBarOptions} data={co2ByGreenhouseData} />
+            ) : (
+              <div className="text-sm text-[var(--muted)] pt-8">{tr("common.notSpecified")}</div>
+            )}
+          </div>
+        </section>
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
+          <div className="font-semibold">{tr("dashboard.charts.tasksSplit")}</div>
+          <div className="text-sm text-[var(--muted)] mt-1">{tr(PERIOD_I18N[period])}</div>
+          <div className="mt-4 h-64 flex items-center justify-center">
+            {tasksSplitData ? (
+              <Doughnut options={doughnutOptions} data={tasksSplitData} />
+            ) : (
+              <div className="text-sm text-[var(--muted)]">{tr("common.notSpecified")}</div>
+            )}
           </div>
         </section>
       </div>

@@ -17,7 +17,6 @@ export default function ProfileClient() {
     login: string;
     role: string;
     last_login: string | null;
-    totp_enabled: boolean;
   } | null>(null);
   const [logins, setLogins] = useState<Array<{ id: number; ip: string | null; user_agent: string | null; created_at: string }>>([]);
 
@@ -29,8 +28,10 @@ export default function ProfileClient() {
   const [savingPass, setSavingPass] = useState(false);
 
   const roleLabel = useMemo(() => {
-    const role = (profile?.role as any) ?? me?.role;
-    return role ? (RoleLabel as any)[role] ?? String(role) : "—";
+    const role = profile?.role ?? me?.role ?? null;
+    if (!role) return "—";
+    const key = String(role) as keyof typeof RoleLabel;
+    return RoleLabel[key] ?? String(role);
   }, [profile?.role, me?.role]);
 
   async function load() {
@@ -38,13 +39,21 @@ export default function ProfileClient() {
     setError(null);
     try {
       const res = await fetch("/api/profile", { cache: "no-store" });
-      const data = (await res.json().catch(() => null)) as any;
-      if (!res.ok || !data?.ok) throw new Error(data?.error || tr("error.network"));
+      const data = (await res.json().catch(() => null)) as
+        | null
+        | { ok: true; me: { full_name: string; login: string; role: string; last_login: string | null }; logins?: unknown[] }
+        | { ok: false; error?: string };
+      if (!res.ok || !data?.ok) throw new Error((data && !data.ok ? data.error : null) || tr("error.network"));
       setProfile(data.me);
-      setLogins(Array.isArray(data.logins) ? data.logins : []);
+      setLogins(
+        Array.isArray(data.logins)
+          ? (data.logins as Array<{ id: number; ip: string | null; user_agent: string | null; created_at: string }>)
+          : [],
+      );
       setFullNameDraft(data.me?.full_name ?? "");
-    } catch (e: any) {
-      setError(e?.message || tr("error.network"));
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : null;
+      setError(msg || tr("error.network"));
     } finally {
       setLoading(false);
     }
@@ -115,8 +124,9 @@ export default function ProfileClient() {
                     const data = await res.json().catch(() => null);
                     if (!res.ok || !data?.ok) throw new Error(data?.error || tr("error.saveFailed"));
                     await load();
-                  } catch (e: any) {
-                    setError(e?.message || tr("error.network"));
+                  } catch (e: unknown) {
+                    const msg = e instanceof Error ? e.message : null;
+                    setError(msg || tr("error.network"));
                   } finally {
                     setSavingName(false);
                   }
@@ -163,24 +173,15 @@ export default function ProfileClient() {
                     if (!res.ok || !data?.ok) throw new Error(data?.error || tr("error.saveFailed"));
                     setCurrentPassword("");
                     setNewPassword("");
-                  } catch (e: any) {
-                    setError(e?.message || tr("error.network"));
+                  } catch (e: unknown) {
+                    const msg = e instanceof Error ? e.message : null;
+                    setError(msg || tr("error.network"));
                   } finally {
                     setSavingPass(false);
                   }
                 }}
               >
                 {savingPass ? tr("common.saving") : tr("common.save")}
-              </RippleButton>
-            </div>
-          </div>
-
-          <div className="mt-6">
-            <div className="text-sm font-medium">{tr("profile.security.twofa")}</div>
-            <div className="mt-2 text-sm text-[var(--muted)]">{tr("profile.security.twofaLater")}</div>
-            <div className="mt-3">
-              <RippleButton variant="outline" className="px-4 py-2.5" disabled>
-                {profile?.totp_enabled ? tr("profile.security.twofaDisable") : tr("profile.security.twofaEnable")}
               </RippleButton>
             </div>
           </div>

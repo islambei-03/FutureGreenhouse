@@ -50,9 +50,14 @@ export default function NotificationsPage() {
   }
 
   useEffect(() => {
-    load();
+    const t = setTimeout(() => {
+      void load();
+    }, 0);
     const id = setInterval(load, 15_000);
-    return () => clearInterval(id);
+    return () => {
+      clearTimeout(t);
+      clearInterval(id);
+    };
   }, []);
 
   async function markAll() {

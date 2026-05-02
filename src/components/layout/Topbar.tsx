@@ -38,7 +38,11 @@ export default function Topbar({
   const router = useRouter();
   const pathname = usePathname();
   const [me, setMe] = useState<MeResponse | null>(null);
-  const [theme, setTheme] = useState<ThemeName>("dark");
+  const [theme, setTheme] = useState<ThemeName>(() => {
+    if (typeof window === "undefined") return "dark";
+    const raw = localStorage.getItem(THEME_STORAGE_KEY);
+    return (raw === "light" || raw === "blue" || raw === "dark" ? raw : "dark") satisfies ThemeName;
+  });
   const [menuOpen, setMenuOpen] = useState(false);
   const { locale, setLocale, t } = useI18n();
 
@@ -47,12 +51,6 @@ export default function Topbar({
     if (theme === "light") return "☀️";
     return "🔵";
   }, [theme]);
-
-  useEffect(() => {
-    const raw = localStorage.getItem(THEME_STORAGE_KEY);
-    const t = (raw === "light" || raw === "blue" || raw === "dark" ? raw : "dark") satisfies ThemeName;
-    setTheme(t);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;

@@ -2,7 +2,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { ENV } from "@/lib/env";
 
-export type UserRole = "admin" | "agronomist" | "operator" | "viewer";
+export type UserRole = "admin" | "director" | "agronomist" | "worker";
 
 export type AuthTokenPayload = {
   sub: string; // user id
@@ -31,7 +31,7 @@ export async function signAuthToken(payload: AuthTokenPayload) {
 export async function verifyAuthToken(token: string) {
   const { payload } = await jwtVerify(token, secretKey());
   const role = payload.role;
-  if (role !== "admin" && role !== "agronomist" && role !== "operator" && role !== "viewer") {
+  if (role !== "admin" && role !== "director" && role !== "agronomist" && role !== "worker") {
     throw new Error("Некорректная роль в токене");
   }
   return {

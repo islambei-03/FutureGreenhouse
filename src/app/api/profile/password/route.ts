@@ -21,9 +21,9 @@ export async function PUT(req: Request) {
     return NextResponse.json({ ok: false, error: await apiT("api.badData") }, { status: 400 });
   }
 
-  const user = db()
+  const user = (await db()
     .prepare(`SELECT id, password_hash FROM users WHERE id = ?`)
-    .get(Number(auth.user.id)) as { id: number; password_hash: string } | undefined;
+    .get(Number(auth.user.id))) as { id: number; password_hash: string } | undefined;
 
   if (!user) {
     return NextResponse.json({ ok: false, error: await apiT("api.badId") }, { status: 404 });
@@ -35,9 +35,9 @@ export async function PUT(req: Request) {
   }
 
   const hash = await bcrypt.hash(parsed.data.newPassword, 10);
-  db().prepare(`UPDATE users SET password_hash = ? WHERE id = ?`).run(hash, user.id);
+  await db().prepare(`UPDATE users SET password_hash = ? WHERE id = ?`).run(hash, user.id);
 
-  auditLog({
+  await auditLog({
     actorUserId: user.id,
     action: "update",
     entity: "profile",
@@ -47,4 +47,3 @@ export async function PUT(req: Request) {
 
   return NextResponse.json({ ok: true });
 }
-

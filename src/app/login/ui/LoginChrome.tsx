@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import LoginForm from "@/app/login/ui/LoginForm";
 import { I18nProvider, useI18n } from "@/components/i18n/I18nContext";
 import { LOCALE_STORAGE_KEY, type Locale } from "@/lib/i18n";
@@ -21,16 +21,6 @@ export default function LoginChrome() {
 
 function LoginChromeInner() {
   const { t } = useI18n();
-
-  const testAccounts = useMemo(
-    () => [
-      { login: "admin", pass: "admin123" },
-      { login: "asel", pass: "asel123" },
-      { login: "nurlan", pass: "nurlan123" },
-      { login: "director", pass: "dir123" },
-    ],
-    [],
-  );
 
   return (
     <main className="min-h-screen grid place-items-center px-4 bg-glow overflow-hidden">
@@ -54,14 +44,7 @@ function LoginChromeInner() {
         </div>
 
         <div className="mt-4 text-center text-xs text-[var(--muted)]">
-          {testAccounts.map((a, idx) => (
-            <span key={a.login}>
-              {idx === 0 ? " " : " · "}
-              <span className="text-[var(--text)]">
-                {a.login} / {a.pass}
-              </span>
-            </span>
-          ))}
+          {/* демо-аккаунты не показываем в UI (даже локально) */}
         </div>
       </div>
     </main>

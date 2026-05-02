@@ -46,7 +46,7 @@ function priorityKey(p: TaskRow["priority"]) {
 
 export default function TasksPage() {
   const me = useMe();
-  const role: UserRole = me?.role ?? "viewer";
+  const role: UserRole = me?.role ?? "director";
   const { t: tr } = useI18n();
 
   const CreateSchema = useMemo(
@@ -91,10 +91,13 @@ export default function TasksPage() {
       ]);
       const t = (await tRes.json().catch(() => null)) as null | { ok: boolean; tasks: TaskRow[] };
       const e = (await eRes.json().catch(() => null)) as null | { ok: boolean; employees: EmployeeRow[] };
-      const g = (await gRes.json().catch(() => null)) as null | { ok: boolean; greenhouses: any[] };
+      const g = (await gRes.json().catch(() => null)) as
+        | null
+        | { ok: true; greenhouses: Array<{ id: number; name: string }> }
+        | { ok: false; error?: string };
       if (t?.ok) setItems(t.tasks);
       if (e?.ok) setEmployees(e.employees);
-      if (g?.ok) setGreenhouses((g.greenhouses as any[]).map((x) => ({ id: x.id, name: x.name })));
+      if (g?.ok) setGreenhouses(g.greenhouses.map((x) => ({ id: x.id, name: x.name })));
     } finally {
       setLoading(false);
     }
@@ -357,7 +360,7 @@ export default function TasksPage() {
                 <label className="text-sm text-[var(--muted)]">{tr("tasks.field.priority")}</label>
                 <select
                   value={form.priority}
-                  onChange={(e) => setForm((v) => ({ ...v, priority: e.target.value as any }))}
+                  onChange={(e) => setForm((v) => ({ ...v, priority: e.target.value as TaskRow["priority"] }))}
                   className="w-full rounded-xl bg-black/20 border border-[var(--border)] px-4 py-3 outline-none focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent)]/20 transition"
                   disabled={!canCreate(role)}
                 >

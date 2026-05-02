@@ -106,15 +106,20 @@ export default function DbPage() {
   const [cellValue, setCellValue] = useState("");
   const [rowOpen, setRowOpen] = useState(false);
   const [rowMode, setRowMode] = useState<"add" | "edit">("add");
-  const [rowDraft, setRowDraft] = useState<Record<string, any>>({});
+  const [rowDraft, setRowDraft] = useState<Record<string, unknown>>({});
   const [rowSaving, setRowSaving] = useState(false);
+
+  const [simEnabled, setSimEnabled] = useState(false);
+  const [simReady, setSimReady] = useState(false);
+  const [simBusy, setSimBusy] = useState(false);
+  const [simError, setSimError] = useState<string | null>(null);
 
   const pkName = useMemo(() => columns.find((c) => c.pk === 1)?.name || (columns.some((c) => c.name === "id") ? "id" : null), [columns]);
 
   const page = useMemo(() => Math.floor(offset / limit) + 1, [offset, limit]);
   const pages = useMemo(() => Math.max(1, Math.ceil(count / limit)), [count, limit]);
 
-  function coerceValueByType(type: string, raw: any) {
+  function coerceValueByType(type: string, raw: unknown) {
     const t = (type || "").toLowerCase();
     if (raw === "") return null;
     if (raw == null) return null;
@@ -126,7 +131,7 @@ export default function DbPage() {
   }
 
   function openAdd() {
-    const initial: Record<string, any> = {};
+    const initial: Record<string, unknown> = {};
     for (const c of columns) {
       if (pkName && c.name === pkName) continue;
       initial[c.name] = c.dflt_value ?? "";
@@ -137,9 +142,9 @@ export default function DbPage() {
   }
 
   function openEdit(row: Record<string, unknown>) {
-    const initial: Record<string, any> = {};
+    const initial: Record<string, unknown> = {};
     for (const c of columns) {
-      initial[c.name] = (row as any)[c.name] ?? "";
+      initial[c.name] = row[c.name] ?? "";
     }
     setRowMode("edit");
     setRowDraft(initial);
@@ -153,7 +158,7 @@ export default function DbPage() {
     setError(null);
     try {
       if (rowMode === "add") {
-        const payload: Record<string, any> = {};
+        const payload: Record<string, unknown> = {};
         for (const c of columns) {
           if (pkName && c.name === pkName) continue;
           payload[c.name] = coerceValueByType(c.type, rowDraft[c.name]);
@@ -167,7 +172,7 @@ export default function DbPage() {
         if (!res.ok || !data?.ok) throw new Error(data?.error || tr("error.saveFailed"));
       } else {
         const id = rowDraft[pkName as string];
-        const payload: Record<string, any> = {};
+        const payload: Record<string, unknown> = {};
         for (const c of columns) {
           if (pkName && c.name === pkName) continue;
           payload[c.name] = coerceValueByType(c.type, rowDraft[c.name]);
@@ -182,8 +187,9 @@ export default function DbPage() {
       }
       setRowOpen(false);
       await loadTable();
-    } catch (e: any) {
-      setError(e?.message || tr("error.network"));
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : null;
+      setError(msg || tr("error.network"));
     } finally {
       setRowSaving(false);
     }
@@ -191,7 +197,7 @@ export default function DbPage() {
 
   async function deleteRow(row: Record<string, unknown>) {
     if (!table || !pkName) return;
-    const id = (row as any)[pkName];
+    const id = row[pkName];
     if (!confirm(`${tr("common.delete")} ${table}.${pkName}=${String(id)}?`)) return;
     setError(null);
     try {
@@ -203,8 +209,9 @@ export default function DbPage() {
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.ok) throw new Error(data?.error || tr("error.deleteFailed"));
       await loadTable();
-    } catch (e: any) {
-      setError(e?.message || tr("error.network"));
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : null;
+      setError(msg || tr("error.network"));
     }
   }
 
@@ -218,7 +225,7 @@ export default function DbPage() {
         setTables(data.tables);
         setTable((prev) => prev || data.tables[0] || "");
       } else {
-        setError((data as any)?.error || tr("error.network"));
+        setError((data && !data.ok ? data.error : null) || tr("error.network"));
       }
     } catch {
       setError(tr("error.network"));
@@ -267,7 +274,7 @@ export default function DbPage() {
         setLimit(data.limit);
         setOffset(data.offset);
       } else {
-        setError((data as any)?.error || tr("error.network"));
+        setError((data && !data.ok ? data.error : null) || tr("error.network"));
       }
     } catch {
       setError(tr("error.network"));
@@ -278,6 +285,40 @@ export default function DbPage() {
 
   useEffect(() => {
     loadList();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/sensor-simulation", {
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+        const data = (await res.json().catch(() => null)) as
+          | { ok?: boolean; enabled?: boolean; error?: string }
+          | null;
+        if (cancelled) return;
+        setSimReady(true);
+        if (data?.ok) {
+          setSimEnabled(!!data.enabled);
+          setSimError(null);
+        } else {
+          setSimEnabled(false);
+          setSimError(data?.error ?? tr("error.network"));
+        }
+      } catch {
+        if (!cancelled) {
+          setSimReady(true);
+          setSimEnabled(false);
+          setSimError(tr("error.network"));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -296,6 +337,72 @@ export default function DbPage() {
             <div className="text-sm text-[var(--muted)] mt-1">{tr("db.subtitle")}</div>
           </div>
           <div className="text-xs text-[var(--muted)]">{loading ? tr("common.loading") : ""}</div>
+        </div>
+      </Card>
+
+      <Card className="p-5 border-[color:var(--accent)]/30 bg-[color:var(--accent)]/8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="min-w-0">
+            <div className="font-semibold">{tr("db.sensorSim.title")}</div>
+            {simError ? <div className="text-xs text-red-300/90 mt-1">{simError}</div> : null}
+          </div>
+          <div className="flex flex-wrap gap-2 shrink-0">
+            <RippleButton
+              className="px-4 py-2.5"
+              disabled={simBusy || !simReady || simEnabled}
+              onClick={async () => {
+                setSimBusy(true);
+                setSimError(null);
+                try {
+                  const res = await fetch("/api/admin/sensor-simulation", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: { "content-type": "application/json" },
+                    body: JSON.stringify({ enabled: true, tickNow: true }),
+                  });
+                  const data = (await res.json().catch(() => null)) as
+                    | { ok?: boolean; enabled?: boolean; error?: string }
+                    | null;
+                  if (data?.ok) setSimEnabled(!!data.enabled);
+                  else setSimError(data?.error ?? tr("error.network"));
+                } catch {
+                  setSimError(tr("error.network"));
+                } finally {
+                  setSimBusy(false);
+                }
+              }}
+            >
+              {simBusy ? tr("common.saving") : tr("db.sensorSim.enable")}
+            </RippleButton>
+            <RippleButton
+              variant="outline"
+              className="px-4 py-2.5"
+              disabled={simBusy || !simReady || !simEnabled}
+              onClick={async () => {
+                setSimBusy(true);
+                setSimError(null);
+                try {
+                  const res = await fetch("/api/admin/sensor-simulation", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: { "content-type": "application/json" },
+                    body: JSON.stringify({ enabled: false }),
+                  });
+                  const data = (await res.json().catch(() => null)) as
+                    | { ok?: boolean; enabled?: boolean; error?: string }
+                    | null;
+                  if (data?.ok) setSimEnabled(!!data.enabled);
+                  else setSimError(data?.error ?? tr("error.network"));
+                } catch {
+                  setSimError(tr("error.network"));
+                } finally {
+                  setSimBusy(false);
+                }
+              }}
+            >
+              {simBusy ? tr("common.saving") : tr("db.sensorSim.disable")}
+            </RippleButton>
+          </div>
         </div>
       </Card>
 
@@ -665,6 +772,11 @@ export default function DbPage() {
               const disabled = rowMode === "edit" && isPk;
               const type = (c.type || "").toLowerCase();
               const inputType = type.includes("int") || type.includes("real") || type.includes("num") ? "number" : "text";
+              const cellDraft = rowDraft[c.name];
+              const cellStr =
+                cellDraft === undefined || cellDraft === null || typeof cellDraft === "object"
+                  ? ""
+                  : String(cellDraft);
               return (
                 <label key={c.name} className="block">
                   <div className="text-xs text-[var(--muted)] mb-1">
@@ -672,7 +784,7 @@ export default function DbPage() {
                   </div>
                   <input
                     type={inputType}
-                    value={rowDraft[c.name] ?? ""}
+                    value={cellStr}
                     onChange={(e) => setRowDraft((prev) => ({ ...prev, [c.name]: e.target.value }))}
                     disabled={!!disabled}
                     className="w-full rounded-xl bg-black/20 border border-[var(--border)] px-4 py-2.5 outline-none focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent)]/20 transition disabled:opacity-60"

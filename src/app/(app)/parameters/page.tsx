@@ -12,6 +12,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import type { ChartOptions } from "chart.js";
 import { Line } from "react-chartjs-2";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
@@ -77,7 +78,10 @@ export default function ParametersPage() {
 
     setLoading(true);
     try {
-      const res = await fetch(`/api/sensors?${sp.toString()}`, { cache: "no-store" });
+      const res = await fetch(`/api/sensors?${sp.toString()}`, {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
       const data = (await res.json().catch(() => null)) as null | {
         ok: boolean;
         current: CurrentRow[];
@@ -165,8 +169,14 @@ export default function ParametersPage() {
     };
   }, [chartLabels, history, locale]);
 
-  const chartOptions = useMemo(
-    () => ({
+  const hasChartPoints = history.length > 0;
+
+  const tempChartOptions = useMemo<ChartOptions<"line">>(() => {
+    const yNorm =
+      !hasChartPoints && selectedMeta
+        ? { min: selectedMeta.temp_min - 3, max: selectedMeta.temp_max + 3 }
+        : {};
+    return {
       responsive: true,
       plugins: {
         legend: { display: true, labels: { color: "rgba(232,245,238,0.8)" } },
@@ -175,11 +185,40 @@ export default function ParametersPage() {
       },
       scales: {
         x: { ticks: { color: "rgba(232,245,238,0.6)" }, grid: { color: "rgba(232,245,238,0.08)" } },
-        y: { ticks: { color: "rgba(232,245,238,0.6)" }, grid: { color: "rgba(232,245,238,0.08)" } },
+        y: {
+          ticks: { color: "rgba(232,245,238,0.6)" },
+          grid: { color: "rgba(232,245,238,0.08)" },
+          ...yNorm,
+        },
       },
-    }),
-    [],
-  );
+    };
+  }, [hasChartPoints, selectedMeta]);
+
+  const humChartOptions = useMemo<ChartOptions<"line">>(() => {
+    const yNorm =
+      !hasChartPoints && selectedMeta
+        ? {
+            min: Math.max(0, selectedMeta.humidity_min - 10),
+            max: Math.min(100, selectedMeta.humidity_max + 10),
+          }
+        : {};
+    return {
+      responsive: true,
+      plugins: {
+        legend: { display: true, labels: { color: "rgba(232,245,238,0.8)" } },
+        title: { display: false },
+        tooltip: { enabled: true },
+      },
+      scales: {
+        x: { ticks: { color: "rgba(232,245,238,0.6)" }, grid: { color: "rgba(232,245,238,0.08)" } },
+        y: {
+          ticks: { color: "rgba(232,245,238,0.6)" },
+          grid: { color: "rgba(232,245,238,0.08)" },
+          ...yNorm,
+        },
+      },
+    };
+  }, [hasChartPoints, selectedMeta]);
 
   return (
     <main className="space-y-4">
@@ -228,7 +267,7 @@ export default function ParametersPage() {
             </select>
             <select
               value={range}
-              onChange={(e) => load(selected, e.target.value as any)}
+              onChange={(e) => load(selected, e.target.value as "day" | "7d")}
               className="rounded-xl bg-black/20 border border-[var(--border)] px-4 py-2.5 outline-none focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent)]/20 transition"
             >
               <option value="day">{tr("parameters.range.day")}</option>
@@ -294,18 +333,24 @@ export default function ParametersPage() {
         ) : null}
       </div>
 
+      {!hasChartPoints && selectedMeta ? (
+        <div className="rounded-xl border border-[var(--border)] bg-black/15 px-4 py-3 text-sm text-[var(--muted)]">
+          {tr("parameters.charts.noData")}
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
           <div className="font-semibold">{tr("parameters.charts.temperature")}</div>
           <div className="mt-3">
-            <Line options={chartOptions as any} data={tempData as any} />
+            <Line options={tempChartOptions} data={tempData} />
           </div>
         </section>
 
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
           <div className="font-semibold">{tr("parameters.charts.humidity")}</div>
           <div className="mt-3">
-            <Line options={chartOptions as any} data={humData as any} />
+            <Line options={humChartOptions} data={humData} />
           </div>
         </section>
       </div>

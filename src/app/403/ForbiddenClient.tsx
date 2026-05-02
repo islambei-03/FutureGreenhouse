@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { I18nProvider, useI18n } from "@/components/i18n/I18nContext";
 import { LOCALE_STORAGE_KEY, type Locale } from "@/lib/i18n";
 
@@ -34,18 +35,18 @@ function ForbiddenInner() {
         </div>
 
         <div className="mt-6 flex flex-col sm:flex-row gap-3">
-          <a
+          <Link
             href="/"
             className="inline-flex items-center justify-center rounded-xl px-4 py-3 font-medium bg-[color:var(--accent)] text-black hover:brightness-110 active:brightness-95 transition"
           >
             {t("forbidden.home")}
-          </a>
-          <a
+          </Link>
+          <Link
             href="/login"
             className="inline-flex items-center justify-center rounded-xl px-4 py-3 font-medium border border-[var(--border)] hover:bg-white/5 transition"
           >
             {t("forbidden.switchUser")}
-          </a>
+          </Link>
         </div>
       </div>
     </main>

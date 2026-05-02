@@ -55,7 +55,7 @@ function statusBadge(isDone: number) {
 
 export default function WateringPage() {
   const me = useMe();
-  const role: UserRole = me?.role ?? "viewer";
+  const role: UserRole = me?.role ?? "director";
   const { t: tr } = useI18n();
 
   const FormSchema = useMemo(
@@ -97,11 +97,14 @@ export default function WateringPage() {
         fetch("/api/watering?range=today", { cache: "no-store" }),
         fetch("/api/watering?range=week", { cache: "no-store" }),
       ]);
-      const g = (await gRes.json().catch(() => null)) as null | { ok: boolean; greenhouses: any[] };
+      const g = (await gRes.json().catch(() => null)) as
+        | null
+        | { ok: true; greenhouses: Array<{ id: number; name: string }> }
+        | { ok: false; error?: string };
       const t = (await tRes.json().catch(() => null)) as null | { ok: boolean; items: WateringItem[] };
       const w = (await wRes.json().catch(() => null)) as null | { ok: boolean; items: WateringItem[] };
       if (g?.ok) {
-        const opts = (g.greenhouses as any[]).map((x) => ({ id: x.id, name: x.name })) as GreenhouseOption[];
+        const opts: GreenhouseOption[] = g.greenhouses.map((x) => ({ id: x.id, name: x.name }));
         setGreenhouses(opts);
         setForm((v) => ({ ...v, greenhouse_id: v.greenhouse_id || opts[0]?.id || 0 }));
       }
@@ -114,7 +117,6 @@ export default function WateringPage() {
 
   useEffect(() => {
     loadAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const timeline = useMemo(() => {
@@ -138,7 +140,7 @@ export default function WateringPage() {
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(it);
     }
-    for (const [k, arr] of map) arr.sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
+    for (const [, arr] of map) arr.sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
     return map;
   }, [week, weekDays]);
 
@@ -265,7 +267,7 @@ export default function WateringPage() {
                             {it.is_done ? tr("watering.status.done") : tr("watering.status.planned")}
                           </span>
 
-                          {role === "operator" || role === "admin" ? (
+                          {role === "worker" || role === "admin" ? (
                             <RippleButton
                               onClick={() => markDone(it.id, !it.is_done)}
                               variant="outline"

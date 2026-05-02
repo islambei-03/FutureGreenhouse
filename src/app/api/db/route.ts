@@ -35,21 +35,20 @@ const QuerySchema = z.object({
 });
 
 function quoteIdent(raw: string) {
-  // SQLite identifier quoting: "name", with "" escaping
   return `"${raw.replaceAll('"', '""')}"`;
 }
 
-function listTables(): string[] {
-  const rows = db()
+async function listTables(): Promise<string[]> {
+  const rows = (await db()
     .prepare(
       `
-      SELECT name
-      FROM sqlite_master
-      WHERE type='table' AND name NOT LIKE 'sqlite_%'
-      ORDER BY name ASC
+      SELECT table_name AS name
+      FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+      ORDER BY table_name ASC
     `,
     )
-    .all() as Array<{ name: string }>;
+    .all()) as Array<{ name: string }>;
   return rows.map((r) => r.name);
 }
 
@@ -63,16 +62,40 @@ const SAFE_EDIT_TABLES = new Set([
   "notifications",
 ]);
 
-function getColumns(table: string) {
-  const cols = db().prepare(`PRAGMA table_info(${quoteIdent(table)})`).all() as Array<{
-    cid: number;
-    name: string;
-    type: string;
-    notnull: number;
-    dflt_value: unknown;
-    pk: number;
-  }>;
-  return cols;
+type ColInfo = {
+  cid: number;
+  name: string;
+  type: string;
+  notnull: number;
+  dflt_value: unknown;
+  pk: number;
+};
+
+async function getColumns(table: string): Promise<ColInfo[]> {
+  const rows = (await db()
+    .prepare(
+      `
+      SELECT
+        c.ordinal_position - 1 AS cid,
+        c.column_name AS name,
+        c.data_type AS type,
+        CASE WHEN c.is_nullable = 'NO' THEN 1 ELSE 0 END AS notnull,
+        c.column_default AS dflt_value,
+        CASE WHEN pk.column_name IS NOT NULL THEN 1 ELSE 0 END AS pk
+      FROM information_schema.columns c
+      LEFT JOIN (
+        SELECT kcu.column_name, kcu.table_name
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+          ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
+        WHERE tc.table_schema = 'public' AND tc.constraint_type = 'PRIMARY KEY'
+      ) pk ON pk.table_name = c.table_name AND pk.column_name = c.column_name
+      WHERE c.table_schema = 'public' AND c.table_name = ?
+      ORDER BY c.ordinal_position
+    `,
+    )
+    .all(table)) as ColInfo[];
+  return rows;
 }
 
 function getPrimaryKey(columns: Array<{ name: string; pk: number }>) {
@@ -82,18 +105,25 @@ function getPrimaryKey(columns: Array<{ name: string; pk: number }>) {
   return null;
 }
 
-function getForeignKeys(table: string) {
-  const fks = db().prepare(`PRAGMA foreign_key_list(${quoteIdent(table)})`).all() as Array<{
-    id: number;
-    seq: number;
-    table: string;
-    from: string;
-    to: string;
-    on_update: string;
-    on_delete: string;
-    match: string;
-  }>;
-  return fks;
+async function getForeignKeys(table: string) {
+  return (await db()
+    .prepare(
+      `
+      SELECT
+        kcu.column_name AS "from",
+        ccu.table_name AS "table",
+        ccu.column_name AS "to"
+      FROM information_schema.table_constraints AS tc
+      JOIN information_schema.key_column_usage AS kcu
+        ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
+      JOIN information_schema.constraint_column_usage AS ccu
+        ON ccu.constraint_name = tc.constraint_name AND ccu.table_schema = tc.table_schema
+      WHERE tc.constraint_type = 'FOREIGN KEY'
+        AND tc.table_schema = 'public'
+        AND tc.table_name = ?
+    `,
+    )
+    .all(table)) as Array<{ from: string; table: string; to: string }>;
 }
 
 function safeOrderBy(columns: Array<{ name: string }>, sort?: string, dir?: "asc" | "desc") {
@@ -104,7 +134,7 @@ function safeOrderBy(columns: Array<{ name: string }>, sort?: string, dir?: "asc
   if (columns.some((c) => c.name === "id")) return `ORDER BY ${quoteIdent("id")} DESC`;
   if (columns.some((c) => c.name === "created_at")) return `ORDER BY ${quoteIdent("created_at")} DESC`;
   if (columns.some((c) => c.name === "recorded_at")) return `ORDER BY ${quoteIdent("recorded_at")} DESC`;
-  return `ORDER BY rowid DESC`;
+  return `ORDER BY 1 DESC`;
 }
 
 function buildWhere(opts: {
@@ -118,7 +148,7 @@ function buildWhere(opts: {
   const q = opts.q?.trim();
   if (q) {
     const likeableCols = opts.columns
-      .filter((c) => (c.type || "").toLowerCase().includes("char") || (c.type || "").toLowerCase().includes("text"))
+      .filter((c) => (c.type || "").toLowerCase().includes("character") || (c.type || "").toLowerCase().includes("text"))
       .map((c) => c.name);
     if (likeableCols.length) {
       const or = likeableCols.map((c) => `CAST(${quoteIdent(c)} AS TEXT) LIKE ?`).join(" OR ");
@@ -178,7 +208,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: parsed.error.issues[0]?.message ?? (await apiT("api.badParams")) }, { status: 400 });
   }
 
-  const tables = listTables();
+  const tables = await listTables();
   const table = parsed.data.table;
   if (!table) {
     return NextResponse.json({ ok: true, tables });
@@ -191,17 +221,17 @@ export async function GET(req: Request) {
   const limit = parsed.data.limit ?? 50;
   const offset = parsed.data.offset ?? 0;
 
-  const columns = getColumns(table);
-  const foreignKeys = getForeignKeys(table);
+  const columns = await getColumns(table);
+  const foreignKeys = await getForeignKeys(table);
   const orderBy = safeOrderBy(columns, parsed.data.sort, parsed.data.dir);
   const { whereSql, params } = buildWhere({ columns, q: parsed.data.q, filters: parsed.data.filters });
 
-  const countRow = db()
-    .prepare(`SELECT COUNT(*) as c FROM ${quoteIdent(table)} ${whereSql}`)
-    .get(...params) as { c: number };
-  const rows = db()
+  const countRow = (await db()
+    .prepare(`SELECT COUNT(*)::int as c FROM ${quoteIdent(table)} ${whereSql}`)
+    .get(...params)) as { c: number };
+  const rows = (await db()
     .prepare(`SELECT * FROM ${quoteIdent(table)} ${whereSql} ${orderBy} LIMIT ? OFFSET ?`)
-    .all(...params, limit, offset) as any[];
+    .all(...params, limit, offset)) as unknown[];
 
   return NextResponse.json({
     ok: true,
@@ -242,13 +272,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: await apiT("api.badData") }, { status: 400 });
   }
 
-  const tables = listTables();
+  const tables = await listTables();
   const table = parsed.data.table;
   if (!tables.includes(table) || !SAFE_EDIT_TABLES.has(table)) {
     return NextResponse.json({ ok: false, error: await apiT("api.forbidden") }, { status: 403 });
   }
 
-  const columns = getColumns(table);
+  const columns = await getColumns(table);
   const pk = getPrimaryKey(columns);
   const colSet = new Set(columns.map((c) => c.name));
   const insertable = columns.filter((c) => c.name !== pk).map((c) => c.name);
@@ -262,13 +292,13 @@ export async function POST(req: Request) {
   }
 
   const sql = `INSERT INTO ${quoteIdent(table)} (${cols.map(quoteIdent).join(", ")}) VALUES (${cols.map(() => "?").join(", ")})`;
-  const res = db().prepare(sql).run(...vals);
+  const res = await db().prepare(sql).run(...vals);
 
-  auditLog({
+  await auditLog({
     actorUserId: Number(auth.user.id),
     action: "create",
     entity: "db",
-    entityId: typeof res.lastInsertRowid === "bigint" ? Number(res.lastInsertRowid) : (res.lastInsertRowid as any),
+    entityId: typeof res.lastInsertRowid === "bigint" ? Number(res.lastInsertRowid) : (res.lastInsertRowid as number),
     details: `INSERT ${table} (${cols.join(", ")})`,
   });
 
@@ -285,13 +315,13 @@ export async function PUT(req: Request) {
     return NextResponse.json({ ok: false, error: await apiT("api.badData") }, { status: 400 });
   }
 
-  const tables = listTables();
+  const tables = await listTables();
   const table = parsed.data.table;
   if (!tables.includes(table) || !SAFE_EDIT_TABLES.has(table)) {
     return NextResponse.json({ ok: false, error: await apiT("api.forbidden") }, { status: 403 });
   }
 
-  const columns = getColumns(table);
+  const columns = await getColumns(table);
   const pk = getPrimaryKey(columns);
   if (!pk) {
     return NextResponse.json({ ok: false, error: await apiT("api.badParams") }, { status: 400 });
@@ -307,9 +337,9 @@ export async function PUT(req: Request) {
   }
 
   const sql = `UPDATE ${quoteIdent(table)} SET ${cols.map((c) => `${quoteIdent(c)} = ?`).join(", ")} WHERE ${quoteIdent(pk)} = ?`;
-  const res = db().prepare(sql).run(...vals, parsed.data.id);
+  const res = await db().prepare(sql).run(...vals, parsed.data.id);
 
-  auditLog({
+  await auditLog({
     actorUserId: Number(auth.user.id),
     action: "update",
     entity: "db",
@@ -330,22 +360,22 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ ok: false, error: await apiT("api.badData") }, { status: 400 });
   }
 
-  const tables = listTables();
+  const tables = await listTables();
   const table = parsed.data.table;
   if (!tables.includes(table) || !SAFE_EDIT_TABLES.has(table)) {
     return NextResponse.json({ ok: false, error: await apiT("api.forbidden") }, { status: 403 });
   }
 
-  const columns = getColumns(table);
+  const columns = await getColumns(table);
   const pk = getPrimaryKey(columns);
   if (!pk) {
     return NextResponse.json({ ok: false, error: await apiT("api.badParams") }, { status: 400 });
   }
 
   const sql = `DELETE FROM ${quoteIdent(table)} WHERE ${quoteIdent(pk)} = ?`;
-  const res = db().prepare(sql).run(parsed.data.id);
+  const res = await db().prepare(sql).run(parsed.data.id);
 
-  auditLog({
+  await auditLog({
     actorUserId: Number(auth.user.id),
     action: "delete",
     entity: "db",
@@ -355,4 +385,3 @@ export async function DELETE(req: Request) {
 
   return NextResponse.json({ ok: true, changes: res.changes });
 }
-

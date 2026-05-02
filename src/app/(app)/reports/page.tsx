@@ -6,17 +6,28 @@ import {
   CategoryScale,
   LinearScale,
   BarElement,
+  PointElement,
+  LineElement,
   Title,
   Tooltip,
   Legend,
 } from "chart.js";
-import { Bar } from "react-chartjs-2";
+import type { ChartData, ChartOptions } from "chart.js";
+import { Bar, Line } from "react-chartjs-2";
 import RippleButton from "@/components/ui/RippleButton";
 import { useI18n } from "@/components/i18n/I18nContext";
+import type { I18nKey } from "@/lib/i18n";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend);
 
 type Period = "day" | "week" | "month" | "year";
+
+const REPORT_PERIOD_I18N = {
+  day: "reports.period.day",
+  week: "reports.period.week",
+  month: "reports.period.month",
+  year: "reports.period.year",
+} as const satisfies Record<Period, I18nKey>;
 
 type Report = {
   period: Period;
@@ -30,6 +41,11 @@ type Report = {
   };
   chart: { labels: string[]; values: number[] };
   table: Array<{ id: number; name: string; harvested: number }>;
+  series: {
+    waterDaily: Array<{ day: string; liters: number }>;
+    tasksDaily: Array<{ day: string; total: number; done: number }>;
+    sensorsDaily: Array<{ day: string; avgTemp: number | null; avgHum: number | null }>;
+  };
 };
 
 function kpiCard(label: string, value: string) {
@@ -65,10 +81,9 @@ export default function ReportsPage() {
 
   useEffect(() => {
     load(period);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [period]);
 
-  const barData = useMemo(() => {
+  const barData = useMemo<ChartData<"bar"> | null>(() => {
     if (!report) return null;
     return {
       labels: report.chart.labels,
@@ -82,9 +97,9 @@ export default function ReportsPage() {
         },
       ],
     };
-  }, [report]);
+  }, [report, tr]);
 
-  const barOptions = useMemo(
+  const barOptions = useMemo<ChartOptions<"bar">>(
     () => ({
       responsive: true,
       plugins: {
@@ -92,6 +107,100 @@ export default function ReportsPage() {
         tooltip: { enabled: true },
         title: { display: false },
       },
+      scales: {
+        x: { ticks: { color: "rgba(232,245,238,0.6)" }, grid: { color: "rgba(232,245,238,0.08)" } },
+        y: { ticks: { color: "rgba(232,245,238,0.6)" }, grid: { color: "rgba(232,245,238,0.08)" } },
+      },
+    }),
+    [],
+  );
+
+  const waterDailyData = useMemo<ChartData<"bar"> | null>(() => {
+    if (!report) return null;
+    const labels = report.series.waterDaily.map((r) => r.day.slice(5));
+    const values = report.series.waterDaily.map((r) => r.liters);
+    return {
+      labels,
+      datasets: [
+        {
+          label: tr("reports.kpi.water"),
+          data: values,
+          backgroundColor: "rgba(59, 130, 246, 0.35)",
+          borderColor: "rgba(59, 130, 246, 0.9)",
+          borderWidth: 1,
+        },
+      ],
+    };
+  }, [report, tr]);
+
+  const tasksDailyData = useMemo<ChartData<"bar"> | null>(() => {
+    if (!report) return null;
+    const labels = report.series.tasksDaily.map((r) => r.day.slice(5));
+    const total = report.series.tasksDaily.map((r) => r.total);
+    const done = report.series.tasksDaily.map((r) => r.done);
+    return {
+      labels,
+      datasets: [
+        {
+          label: tr("reports.kpi.tasksCompletion"),
+          data: done,
+          backgroundColor: "rgba(34, 197, 94, 0.35)",
+          borderColor: "rgba(34, 197, 94, 0.9)",
+          borderWidth: 1,
+        },
+        {
+          label: tr("tasks.title"),
+          data: total,
+          backgroundColor: "rgba(232, 245, 238, 0.10)",
+          borderColor: "rgba(232, 245, 238, 0.25)",
+          borderWidth: 1,
+        },
+      ],
+    };
+  }, [report, tr]);
+
+  const sensorsDailyData = useMemo<ChartData<"line"> | null>(() => {
+    if (!report) return null;
+    const labels = report.series.sensorsDaily.map((r) => r.day.slice(5));
+    return {
+      labels,
+      datasets: [
+        {
+          label: tr("dashboard.kpi.avgTemp"),
+          data: report.series.sensorsDaily.map((r) => (typeof r.avgTemp === "number" ? Number(r.avgTemp.toFixed(1)) : null)),
+          borderColor: "rgba(34, 197, 94, 0.95)",
+          backgroundColor: "rgba(34, 197, 94, 0.15)",
+          tension: 0.28,
+          pointRadius: 2,
+        },
+        {
+          label: tr("parameters.humidity"),
+          data: report.series.sensorsDaily.map((r) => (typeof r.avgHum === "number" ? Number(r.avgHum.toFixed(1)) : null)),
+          borderColor: "rgba(59, 130, 246, 0.95)",
+          backgroundColor: "rgba(59, 130, 246, 0.15)",
+          tension: 0.28,
+          pointRadius: 2,
+        },
+      ],
+    };
+  }, [report, tr]);
+
+  const compactBarOptions = useMemo<ChartOptions<"bar">>(
+    () => ({
+      responsive: true,
+      plugins: { legend: { display: true, labels: { color: "rgba(232,245,238,0.8)" } }, tooltip: { enabled: true } },
+      scales: {
+        x: { ticks: { color: "rgba(232,245,238,0.6)" }, grid: { color: "rgba(232,245,238,0.08)" } },
+        y: { ticks: { color: "rgba(232,245,238,0.6)" }, grid: { color: "rgba(232,245,238,0.08)" } },
+      },
+    }),
+    [],
+  );
+
+  const lineOptions = useMemo<ChartOptions<"line">>(
+    () => ({
+      responsive: true,
+      plugins: { legend: { display: true, labels: { color: "rgba(232,245,238,0.8)" } }, tooltip: { enabled: true } },
       scales: {
         x: { ticks: { color: "rgba(232,245,238,0.6)" }, grid: { color: "rgba(232,245,238,0.08)" } },
         y: { ticks: { color: "rgba(232,245,238,0.6)" }, grid: { color: "rgba(232,245,238,0.08)" } },
@@ -166,7 +275,7 @@ export default function ReportsPage() {
           <div className="text-sm text-[var(--muted)] mt-1">
             {tr("reports.chart.subtitle")}
           </div>
-          <div className="mt-4">{barData ? <Bar options={barOptions as any} data={barData as any} /> : null}</div>
+          <div className="mt-4">{barData ? <Bar options={barOptions} data={barData} /> : null}</div>
         </section>
 
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)]">
@@ -199,6 +308,26 @@ export default function ReportsPage() {
               </tbody>
             </table>
           </div>
+        </section>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
+          <div className="font-semibold">{tr("reports.kpi.water")}</div>
+          <div className="text-sm text-[var(--muted)] mt-1">{tr(REPORT_PERIOD_I18N[period])}</div>
+          <div className="mt-4">{waterDailyData ? <Bar options={compactBarOptions} data={waterDailyData} /> : null}</div>
+        </section>
+
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
+          <div className="font-semibold">{tr("tasks.title")}</div>
+          <div className="text-sm text-[var(--muted)] mt-1">{tr(REPORT_PERIOD_I18N[period])}</div>
+          <div className="mt-4">{tasksDailyData ? <Bar options={compactBarOptions} data={tasksDailyData} /> : null}</div>
+        </section>
+
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
+          <div className="font-semibold">{tr("parameters.title")}</div>
+          <div className="text-sm text-[var(--muted)] mt-1">{tr(REPORT_PERIOD_I18N[period])}</div>
+          <div className="mt-4">{sensorsDailyData ? <Line options={lineOptions} data={sensorsDailyData} /> : null}</div>
         </section>
       </div>
     </main>

@@ -111,7 +111,7 @@ function Modal({
 
 export default function GreenhousesPage() {
   const me = useMe();
-  const role: UserRole = me?.role ?? "viewer";
+  const role: UserRole = me?.role ?? "director";
   const { t } = useI18n();
 
   const FormSchema = useMemo(
@@ -405,7 +405,7 @@ export default function GreenhousesPage() {
             <label className="text-sm text-[var(--muted)]">{t("greenhouses.field.type")}</label>
             <select
               value={form.type}
-              onChange={(e) => setForm((v) => ({ ...v, type: e.target.value as any }))}
+              onChange={(e) => setForm((v) => ({ ...v, type: e.target.value as GreenhouseCard["type"] }))}
               className="w-full rounded-xl bg-black/20 border border-[var(--border)] px-4 py-3 outline-none focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent)]/20 transition"
             >
               <option value="стеклянная">{t("greenhouses.type.glass")}</option>
@@ -482,7 +482,7 @@ export default function GreenhousesPage() {
             <label className="text-sm text-[var(--muted)]">{t("greenhouses.field.status")}</label>
             <select
               value={form.status}
-              onChange={(e) => setForm((v) => ({ ...v, status: e.target.value as any }))}
+              onChange={(e) => setForm((v) => ({ ...v, status: e.target.value as GreenhouseCard["status"] }))}
               className="w-full rounded-xl bg-black/20 border border-[var(--border)] px-4 py-3 outline-none focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent)]/20 transition"
             >
               <option value="активна">{t("greenhouses.status.active")}</option>

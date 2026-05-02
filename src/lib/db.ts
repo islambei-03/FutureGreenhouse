@@ -16,13 +16,17 @@ declare global {
   var __dbInitPromise: Promise<void> | undefined;
 }
 
+/** На Vercel можно вставить тот же URI, что в `.env.local`; в production `sslmode=no-verify` заменяется на `require`. */
+function databaseUrlForPool(): string {
+  const raw = ENV.DATABASE_URL();
+  if (process.env.NODE_ENV !== "production") return raw;
+  return raw.replace(/\bsslmode=no-verify\b/gi, "sslmode=require");
+}
+
 function getPool() {
   if (globalThis.__dbPool) return globalThis.__dbPool;
-  const connectionString = ENV.DATABASE_URL();
+  const connectionString = databaseUrlForPool();
   const isNoVerify = /\bsslmode=no-verify\b/i.test(connectionString);
-  if (process.env.NODE_ENV === "production" && isNoVerify) {
-    throw new Error("DATABASE_URL: sslmode=no-verify запрещён в production");
-  }
   const needsRelaxedSsl = process.env.NODE_ENV !== "production" && isNoVerify;
   const pool = new pg.Pool({
     connectionString,

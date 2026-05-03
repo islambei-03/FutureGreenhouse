@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcrypt";
 import { db } from "@/lib/db";
-import { setAuthCookie, signAuthToken } from "@/lib/auth";
+import { attachAuthCookie, signAuthToken } from "@/lib/auth";
 
 const BodySchema = z.object({
   login: z.string().min(1, "Введите логин"),
@@ -19,57 +19,74 @@ export async function POST(req: Request) {
     );
   }
 
-  const { login, password } = parsed.data;
-  const user = (await db()
-    .prepare(
-      `SELECT id, full_name, login, password_hash, role, is_active
+  try {
+    const { login, password } = parsed.data;
+    const user = (await db()
+      .prepare(
+        `SELECT id, full_name, login, password_hash, role, is_active
        FROM users
        WHERE login = ?`,
-    )
-    .get(login)) as
-    | {
-        id: number;
-        full_name: string;
-        login: string;
-        password_hash: string;
-        role: "admin" | "director" | "agronomist" | "worker";
-        is_active: number;
-      }
-    | undefined;
+      )
+      .get(login)) as
+      | {
+          id: number;
+          full_name: string;
+          login: string;
+          password_hash: string;
+          role: "admin" | "director" | "agronomist" | "worker";
+          is_active: number;
+        }
+      | undefined;
 
-  if (!user || !user.is_active) {
-    return NextResponse.json({ ok: false, error: "Неверный логин или пароль" }, { status: 401 });
-  }
+    if (!user || !user.is_active) {
+      return NextResponse.json({ ok: false, error: "Неверный логин или пароль" }, { status: 401 });
+    }
 
-  const ok = await bcrypt.compare(password, user.password_hash);
-  if (!ok) {
-    return NextResponse.json({ ok: false, error: "Неверный логин или пароль" }, { status: 401 });
-  }
+    const pwOk = await bcrypt.compare(password, user.password_hash);
+    if (!pwOk) {
+      return NextResponse.json({ ok: false, error: "Неверный логин или пароль" }, { status: 401 });
+    }
 
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    req.headers.get("x-real-ip") ||
-    null;
-  const ua = req.headers.get("user-agent") || null;
+    const ip =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      req.headers.get("x-real-ip") ||
+      null;
+    const ua = req.headers.get("user-agent") || null;
 
-  await db().prepare(`UPDATE users SET last_login = now() WHERE id = ?`).run(user.id);
-  await db()
-    .prepare("INSERT INTO login_history (user_id, ip, user_agent) VALUES (?, ?, ?)")
-    .run(user.id, ip, ua);
-  await db()
-    .prepare(
-      `INSERT INTO action_logs (user_id, action, entity, entity_id, details)
+    await db().prepare(`UPDATE users SET last_login = now() WHERE id = ?`).run(user.id);
+    try {
+      await db()
+        .prepare("INSERT INTO login_history (user_id, ip, user_agent) VALUES (?, ?, ?)")
+        .run(user.id, ip, ua);
+      await db()
+        .prepare(
+          `INSERT INTO action_logs (user_id, action, entity, entity_id, details)
        VALUES (?, 'login', 'users', ?, ?)`,
-    )
-    .run(user.id, user.id, "Вход в систему");
+        )
+        .run(user.id, user.id, "Вход в систему");
+    } catch (auditErr) {
+      console.error("[api/auth/login] audit tables failed (миграции не применены или нет таблиц?)", auditErr);
+    }
 
-  const token = await signAuthToken({
-    sub: String(user.id),
-    login: user.login,
-    role: user.role,
-    fullName: user.full_name,
-  });
-  await setAuthCookie(token);
+    const token = await signAuthToken({
+      sub: String(user.id),
+      login: user.login,
+      role: user.role,
+      fullName: user.full_name,
+    });
 
-  return NextResponse.json({ ok: true });
+    const res = NextResponse.json({ ok: true });
+    attachAuthCookie(res, token);
+    return res;
+  } catch (e) {
+    console.error("[api/auth/login]", e);
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Ошибка сервера при входе. На Vercel проверьте DATABASE_URL и JWT_SECRET; выполните npm run db:migrate к этой же базе.",
+      },
+      { status: 500 },
+    );
+  }
 }

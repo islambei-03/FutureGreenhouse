@@ -1,4 +1,5 @@
 import { SignJWT, jwtVerify } from "jose";
+import type { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { ENV } from "@/lib/env";
 
@@ -42,25 +43,32 @@ export async function verifyAuthToken(token: string) {
   } satisfies AuthTokenPayload;
 }
 
-export async function setAuthCookie(token: string) {
-  const jar = await cookies();
-  jar.set(COOKIE_NAME, token, {
+function authCookieAttrs(): { httpOnly: true; sameSite: "lax"; secure: boolean; path: string } {
+  return {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-  });
+  };
+}
+
+/** Для Route Handlers: cookie обязательно вешать на `NextResponse`, иначе на Vercel заголовок Set-Cookie может не уйти клиенту. */
+export function attachAuthCookie(response: NextResponse, token: string) {
+  response.cookies.set(COOKIE_NAME, token, authCookieAttrs());
+}
+
+export function attachClearAuthCookie(response: NextResponse) {
+  response.cookies.set(COOKIE_NAME, "", { ...authCookieAttrs(), maxAge: 0 });
+}
+
+export async function setAuthCookie(token: string) {
+  const jar = await cookies();
+  jar.set(COOKIE_NAME, token, authCookieAttrs());
 }
 
 export async function clearAuthCookie() {
   const jar = await cookies();
-  jar.set(COOKIE_NAME, "", {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 0,
-  });
+  jar.set(COOKIE_NAME, "", { ...authCookieAttrs(), maxAge: 0 });
 }
 
 export const AUTH_COOKIE_NAME = COOKIE_NAME;

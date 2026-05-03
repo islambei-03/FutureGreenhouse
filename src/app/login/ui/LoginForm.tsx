@@ -24,12 +24,20 @@ export default function LoginForm() {
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
+        credentials: "same-origin",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ login, password }),
       });
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const raw = await res.text();
+      let data = {} as { ok?: boolean; error?: string };
+      try {
+        data = raw ? (JSON.parse(raw) as typeof data) : {};
+      } catch {
+        setError(`${t("error.loginFailed")} (HTTP ${res.status})`);
+        return;
+      }
       if (!res.ok || !data.ok) {
-        setError(data.error || t("error.loginFailed"));
+        setError(data.error || `${t("error.loginFailed")} (HTTP ${res.status})`);
         return;
       }
       router.replace(from);

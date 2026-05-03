@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { attachAuthCookie, signAuthToken } from "@/lib/auth";
 
@@ -42,7 +42,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Неверный логин или пароль" }, { status: 401 });
     }
 
-    const pwOk = await bcrypt.compare(password, user.password_hash);
+    const pwOk = bcrypt.compareSync(password, user.password_hash);
     if (!pwOk) {
       return NextResponse.json({ ok: false, error: "Неверный логин или пароль" }, { status: 401 });
     }
@@ -80,11 +80,14 @@ export async function POST(req: Request) {
     return res;
   } catch (e) {
     console.error("[api/auth/login]", e);
+    const debug =
+      process.env.LOGIN_DEBUG === "1" && e instanceof Error ? e.message : null;
     return NextResponse.json(
       {
         ok: false,
         error:
-          "Ошибка сервера при входе. На Vercel проверьте DATABASE_URL и JWT_SECRET; выполните npm run db:migrate к этой же базе.",
+          debug ??
+          "Ошибка сервера при входе. На Vercel проверьте DATABASE_URL и JWT_SECRET; выполните npm run db:migrate к этой же базе. Для точной причины временно добавьте LOGIN_DEBUG=1 в Env и перезадеплойте.",
       },
       { status: 500 },
     );

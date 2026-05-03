@@ -1,4 +1,4 @@
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import type { Pool } from "pg";
 import { createDbAdapter, type DbAdapter } from "@/lib/db/adapter";
 

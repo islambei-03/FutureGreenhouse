@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { requireApiRoles } from "@/lib/api/rbac";
 import { auditLog } from "@/lib/audit";
@@ -72,7 +72,7 @@ export async function POST(req: Request) {
     | undefined;
   if (exists) return NextResponse.json({ ok: false, error: "Логин уже занят" }, { status: 409 });
 
-  const password_hash = await bcrypt.hash(parsed.data.password, 10);
+  const password_hash = bcrypt.hashSync(parsed.data.password, 10);
 
   const r = (await db()
     .prepare(
@@ -147,7 +147,7 @@ export async function PUT(req: Request) {
   }
 
   if (parsed.data.password) {
-    const password_hash = await bcrypt.hash(parsed.data.password, 10);
+    const password_hash = bcrypt.hashSync(parsed.data.password, 10);
     fields.push("password_hash=@password_hash");
     params.password_hash = password_hash;
   }

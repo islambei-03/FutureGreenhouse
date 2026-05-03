@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { requireApiRoles } from "@/lib/api/rbac";
 import { db } from "@/lib/db";
 import { apiT } from "@/lib/api/i18n";
@@ -29,12 +29,12 @@ export async function PUT(req: Request) {
     return NextResponse.json({ ok: false, error: await apiT("api.badId") }, { status: 404 });
   }
 
-  const ok = await bcrypt.compare(parsed.data.currentPassword, user.password_hash);
+  const ok = bcrypt.compareSync(parsed.data.currentPassword, user.password_hash);
   if (!ok) {
     return NextResponse.json({ ok: false, error: await apiT("api.forbidden") }, { status: 403 });
   }
 
-  const hash = await bcrypt.hash(parsed.data.newPassword, 10);
+  const hash = bcrypt.hashSync(parsed.data.newPassword, 10);
   await db().prepare(`UPDATE users SET password_hash = ? WHERE id = ?`).run(hash, user.id);
 
   await auditLog({

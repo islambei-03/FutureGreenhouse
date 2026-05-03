@@ -16,21 +16,26 @@ declare global {
   var __dbInitPromise: Promise<void> | undefined;
 }
 
-/** На Vercel можно вставить тот же URI, что в `.env.local`; в production `sslmode=no-verify` заменяется на `require`. */
-function databaseUrlForPool(): string {
-  const raw = ENV.DATABASE_URL();
-  if (process.env.NODE_ENV !== "production") return raw;
-  return raw.replace(/\bsslmode=no-verify\b/gi, "sslmode=require");
+/** На Vercel можно вставить тот же URI, что в `.env.local`; в production `sslmode=no-verify` в строке заменяется на `require` (для парсера URI), а проверка TLS ослабляется по исходному флагу или env. */
+function databaseUrlForPool(rawFromEnv: string): string {
+  if (process.env.NODE_ENV !== "production") return rawFromEnv;
+  return rawFromEnv.replace(/\bsslmode=no-verify\b/gi, "sslmode=require");
+}
+
+/** Ослабить проверку TLS: `sslmode=no-verify` в исходном URI Supabase или `DATABASE_SSL_REJECT_UNAUTHORIZED=0` на Vercel при ошибке certificate chain. */
+function wantsRelaxedSsl(rawDatabaseUrl: string): boolean {
+  if (/\bsslmode=no-verify\b/i.test(rawDatabaseUrl)) return true;
+  return process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "0";
 }
 
 function getPool() {
   if (globalThis.__dbPool) return globalThis.__dbPool;
-  const connectionString = databaseUrlForPool();
-  const isNoVerify = /\bsslmode=no-verify\b/i.test(connectionString);
-  const needsRelaxedSsl = process.env.NODE_ENV !== "production" && isNoVerify;
+  const rawUrl = ENV.DATABASE_URL();
+  const connectionString = databaseUrlForPool(rawUrl);
+  const relaxed = wantsRelaxedSsl(rawUrl);
   const pool = new pg.Pool({
     connectionString,
-    ...(needsRelaxedSsl ? { ssl: { rejectUnauthorized: false } } : { ssl: { rejectUnauthorized: true } }),
+    ...(relaxed ? { ssl: { rejectUnauthorized: false } } : { ssl: { rejectUnauthorized: true } }),
     max: 5,
     connectionTimeoutMillis: 15_000,
     idleTimeoutMillis: 20_000,

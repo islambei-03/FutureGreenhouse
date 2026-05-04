@@ -30,10 +30,12 @@ export default function Topbar({
   notificationCount,
   onMe,
   onNotifications,
+  onOpenMobileNav,
 }: {
   notificationCount: number;
   onMe: (me: MeResponse) => void;
   onNotifications: (count: number) => void;
+  onOpenMobileNav?: () => void;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -102,11 +104,22 @@ export default function Topbar({
 
   return (
     <header className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--bg)]/75 backdrop-blur">
-      <div className="h-16 px-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="md:hidden size-10 rounded-xl grid place-items-center border border-[var(--border)] bg-black/20">
-            🌿
-          </div>
+      <div className="h-14 sm:h-16 px-3 sm:px-4 flex items-center justify-between gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          {onOpenMobileNav ? (
+            <button
+              type="button"
+              onClick={onOpenMobileNav}
+              className="md:hidden size-11 shrink-0 rounded-xl border border-[var(--border)] bg-black/20 hover:bg-white/5 transition grid place-items-center text-lg leading-none"
+              aria-label="Открыть меню"
+            >
+              ☰
+            </button>
+          ) : (
+            <div className="md:hidden size-10 shrink-0 rounded-xl grid place-items-center border border-[var(--border)] bg-black/20">
+              🌿
+            </div>
+          )}
           <div className="hidden sm:block">
             <div className="text-sm font-semibold leading-tight">{fullName}</div>
             <div className="text-xs text-[var(--muted)] leading-tight">{roleLabel}</div>
@@ -163,7 +176,7 @@ export default function Topbar({
             </button>
 
             {menuOpen ? (
-              <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-2 animate-fadeIn">
+              <div className="absolute right-0 mt-2 w-[min(14rem,calc(100vw-1.5rem))] max-h-[min(70vh,24rem)] overflow-y-auto overscroll-contain rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-2 animate-fadeIn">
                 <Link
                   href="/profile"
                   className="block rounded-xl px-3 py-2 text-sm hover:bg-white/5 transition"

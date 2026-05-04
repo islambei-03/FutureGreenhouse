@@ -36,7 +36,7 @@ function Bubble({ role, children }: { role: ChatRow["role"]; children: React.Rea
     <div className={["flex", isUser ? "justify-end" : "justify-start"].join(" ")}>
       <div
         className={[
-          "max-w-[820px] rounded-2xl border px-4 py-3 text-sm whitespace-pre-wrap",
+          "max-w-[min(100%,42rem)] sm:max-w-[820px] rounded-2xl border px-4 py-3 text-sm whitespace-pre-wrap break-words",
           isUser
             ? "border-[color:var(--accent)]/30 bg-[color:var(--accent)]/10"
             : "border-[var(--border)] bg-black/10",
@@ -141,20 +141,20 @@ export default function AiPage() {
   }
 
   return (
-    <main className="space-y-4">
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
+    <main className="min-w-0 max-w-full space-y-4">
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-4 sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
             <div className="text-xl font-semibold">{tr("ai.title")}</div>
             <div className="text-sm text-[var(--muted)] mt-1">
               {tr("ai.subtitle")}
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             <select
               value={greenhouseId == null ? "" : String(greenhouseId)}
               onChange={(e) => setGreenhouseId(e.target.value ? Number(e.target.value) : null)}
-              className="rounded-xl bg-black/20 border border-[var(--border)] px-3 py-2 text-sm outline-none focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent)]/20 transition"
+              className="w-full rounded-xl bg-black/20 border border-[var(--border)] px-3 py-2 text-sm outline-none focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent)]/20 transition sm:w-auto sm:min-w-[12rem]"
               disabled={thinking}
               title={tr("ai.greenhouseSelect")}
             >
@@ -183,12 +183,12 @@ export default function AiPage() {
         </div>
       </div>
 
-      <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)]">
-        <div className="p-5 border-b border-[var(--border)] flex items-center justify-between gap-3">
+      <section className="min-w-0 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)]">
+        <div className="flex flex-col gap-3 border-b border-[var(--border)] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div className="font-semibold">{tr("ai.dialog.title")}</div>
           <button
             onClick={loadHistory}
-            className="rounded-xl px-3 py-2 text-sm border border-[var(--border)] bg-black/10 hover:bg-white/5 transition"
+            className="w-full rounded-xl px-3 py-2 text-sm border border-[var(--border)] bg-black/10 hover:bg-white/5 transition sm:w-auto"
             disabled={thinking}
           >
             {tr("ai.refresh")}

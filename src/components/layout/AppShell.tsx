@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { UserRole } from "@/lib/auth";
 import Sidebar from "@/components/layout/Sidebar";
+import MobileNavDrawer from "@/components/layout/MobileNavDrawer";
 import Topbar from "@/components/layout/Topbar";
 import { AuthProvider, type MeUser } from "@/components/auth/AuthContext";
 import { I18nProvider } from "@/components/i18n/I18nContext";
@@ -24,6 +25,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   // Уведомления: пока лёгкая загрузка по API (без вебсокетов).
   const [notificationCount, setNotificationCount] = useState(0);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
 
   const role = useMemo<UserRole>(() => {
     if (me && me.ok) return me.user.role;
@@ -49,10 +55,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <I18nProvider initialLocale={initialLocale}>
       <AuthProvider me={meUser}>
         <div className="min-h-screen flex">
+          <MobileNavDrawer
+            open={mobileNavOpen}
+            onClose={() => setMobileNavOpen(false)}
+            role={role}
+            notificationCount={notificationCount}
+            fullName={fullName}
+          />
           <Sidebar role={role} notificationCount={notificationCount} fullName={fullName} />
           <div className="flex-1 min-w-0 flex flex-col">
-            <Topbar notificationCount={notificationCount} onMe={onMe} onNotifications={onNotifications} />
-            <div key={pathname} className="flex-1 min-w-0 p-4 md:p-6 animate-fadeIn">
+            <Topbar
+              notificationCount={notificationCount}
+              onMe={onMe}
+              onNotifications={onNotifications}
+              onOpenMobileNav={() => setMobileNavOpen(true)}
+            />
+            <div key={pathname} className="flex-1 min-w-0 p-3 sm:p-4 md:p-6 animate-fadeIn">
               {children}
             </div>
           </div>

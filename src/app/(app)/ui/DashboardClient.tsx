@@ -401,7 +401,7 @@ export default function DashboardClient() {
   }
 
   return (
-    <main className="space-y-4">
+    <main className="min-w-0 max-w-full space-y-4">
       {alerts.length ? (
         <div className="space-y-2">
           {alerts.map((a, i) => (
@@ -454,13 +454,13 @@ export default function DashboardClient() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <section className="xl:col-span-2 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)]">
+        <section className="min-w-0 overflow-hidden xl:col-span-2 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)]">
           <div className="p-5 border-b border-[var(--border)]">
             <div className="font-semibold">{tr("dashboard.monitoring.title")}</div>
             <div className="text-sm text-[var(--muted)] mt-1">{tr("dashboard.monitoring.subtitle")}</div>
           </div>
-          <div className="overflow-auto">
-            <table className="w-full text-sm fg-table-stagger">
+          <div className="overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
+            <table className="w-full min-w-[36rem] text-sm fg-table-stagger">
               <thead className="text-left text-[var(--muted)]">
                 <tr className="border-b border-[var(--border)]">
                   <th className="p-4">{tr("dashboard.table.greenhouse")}</th>
@@ -508,7 +508,7 @@ export default function DashboardClient() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)]">
+        <section className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)]">
           <div className="p-5 border-b border-[var(--border)]">
             <div className="font-semibold">{tr("dashboard.todayTasks.title")}</div>
             <div className="text-sm text-[var(--muted)] mt-1">{tr("dashboard.todayTasks.subtitle")}</div>
@@ -548,26 +548,26 @@ export default function DashboardClient() {
         </section>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <section className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
           <div className="font-semibold">{tr("reports.kpi.water")}</div>
           <div className="text-sm text-[var(--muted)] mt-1">{tr(PERIOD_I18N[period])}</div>
           <div className="mt-4">{waterData ? <Bar options={chartOptions} data={waterData} /> : null}</div>
         </section>
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
+        <section className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
           <div className="font-semibold">{tr("tasks.title")}</div>
           <div className="text-sm text-[var(--muted)] mt-1">{tr(PERIOD_I18N[period])}</div>
           <div className="mt-4">{tasksData ? <Bar options={chartOptions} data={tasksData} /> : null}</div>
         </section>
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
+        <section className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
           <div className="font-semibold">{tr("parameters.title")}</div>
           <div className="text-sm text-[var(--muted)] mt-1">{tr(PERIOD_I18N[period])}</div>
           <div className="mt-4">{sensorsData ? <Line options={lineOptions} data={sensorsData} /> : null}</div>
         </section>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+        <section className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
           <div className="font-semibold">{tr("dashboard.charts.tempByGreenhouse")}</div>
           <div className="text-sm text-[var(--muted)] mt-1">{tr(PERIOD_I18N[period])}</div>
           <div className="mt-4 h-64">
@@ -578,7 +578,7 @@ export default function DashboardClient() {
             )}
           </div>
         </section>
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
+        <section className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
           <div className="font-semibold">{tr("dashboard.charts.co2ByGreenhouse")}</div>
           <div className="text-sm text-[var(--muted)] mt-1">{tr(PERIOD_I18N[period])}</div>
           <div className="mt-4 h-64">
@@ -589,7 +589,7 @@ export default function DashboardClient() {
             )}
           </div>
         </section>
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
+        <section className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
           <div className="font-semibold">{tr("dashboard.charts.tasksSplit")}</div>
           <div className="text-sm text-[var(--muted)] mt-1">{tr(PERIOD_I18N[period])}</div>
           <div className="mt-4 h-64 flex items-center justify-center">

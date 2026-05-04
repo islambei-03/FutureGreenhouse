@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Card from "@/components/ui/Card";
 import RippleButton from "@/components/ui/RippleButton";
+import AppModal from "@/components/ui/AppModal";
+import TableScroll from "@/components/ui/TableScroll";
 import { useI18n } from "@/components/i18n/I18nContext";
 
 type Col = { name: string; type: string; notnull: number; pk: number; dflt_value: unknown };
@@ -34,39 +36,6 @@ type DbTableRes =
 
 type FilterOp = "eq" | "contains" | "gt" | "gte" | "lt" | "lte" | "isnull" | "notnull";
 type FilterRow = { col: string; op: FilterOp; val?: string };
-
-function Modal({
-  title,
-  open,
-  onClose,
-  children,
-}: {
-  title: string;
-  open: boolean;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="absolute inset-0 grid place-items-center px-4">
-        <div className="w-full max-w-3xl rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] animate-modalIn">
-          <div className="p-5 border-b border-[var(--border)] flex items-center justify-between gap-3">
-            <div className="font-semibold">{title}</div>
-            <button
-              onClick={onClose}
-              className="size-10 grid place-items-center rounded-xl border border-[var(--border)] bg-black/20 hover:bg-white/5 transition"
-            >
-              ✕
-            </button>
-          </div>
-          <div className="p-5">{children}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function formatCell(v: unknown) {
   if (v == null) return { text: "—", isLong: false, full: "" };
@@ -329,7 +298,7 @@ export default function DbPage() {
   }, [table]);
 
   return (
-    <main className="space-y-4">
+    <main className="min-w-0 max-w-full space-y-4">
       <Card className="p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -637,14 +606,14 @@ export default function DbPage() {
         </Card>
 
         <Card className="xl:col-span-2">
-          <div className="p-5 border-b border-[var(--border)] flex items-center justify-between gap-3">
-            <div>
+          <div className="flex flex-col gap-3 border-b border-[var(--border)] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <div className="min-w-0">
               <div className="font-semibold">{tr("db.rows")}</div>
               <div className="text-sm text-[var(--muted)] mt-1">
                 {count} · {page}/{pages}
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
               <RippleButton
                 variant="outline"
                 className="px-4 py-2.5"
@@ -671,8 +640,8 @@ export default function DbPage() {
               </RippleButton>
             </div>
           </div>
-          <div className="overflow-auto">
-            <table className="w-full text-sm">
+          <TableScroll>
+            <table className="w-full min-w-[36rem] text-sm">
               <thead className="text-left text-[var(--muted)]">
                 <tr className="border-b border-[var(--border)]">
                   <th className="p-3 whitespace-nowrap">{tr("common.edit")}</th>
@@ -738,11 +707,11 @@ export default function DbPage() {
                 ) : null}
               </tbody>
             </table>
-          </div>
+          </TableScroll>
         </Card>
       </div>
 
-      <Modal
+      <AppModal
         title={cellTitle || tr("common.open")}
         open={cellOpen}
         onClose={() => {
@@ -751,12 +720,13 @@ export default function DbPage() {
           setCellValue("");
         }}
       >
-        <pre className="text-xs whitespace-pre-wrap break-words rounded-xl border border-[var(--border)] bg-black/20 p-4 max-h-[70vh] overflow-auto">
+        <pre className="max-h-[min(60vh,28rem)] overflow-auto text-xs whitespace-pre-wrap break-words rounded-xl border border-[var(--border)] bg-black/20 p-4">
           {cellValue || "—"}
         </pre>
-      </Modal>
+      </AppModal>
 
-      <Modal
+      <AppModal
+        maxWidth="3xl"
         title={rowMode === "add" ? `${tr("common.add")} · ${table}` : `${tr("common.edit")} · ${table}`}
         open={rowOpen}
         onClose={() => {
@@ -804,7 +774,7 @@ export default function DbPage() {
         <div className="mt-3 text-xs text-[var(--muted)]">
           {tr("db.safeEditHint")}
         </div>
-      </Modal>
+      </AppModal>
     </main>
   );
 }

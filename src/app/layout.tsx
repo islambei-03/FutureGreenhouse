@@ -1,10 +1,19 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import ThemeInit from "@/components/theme/ThemeInit";
 import LocaleInit from "@/components/i18n/LocaleInit";
 
 const inter = Inter({ subsets: ["latin", "cyrillic"], variable: "--font-sans" });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#0a0f0d" },
+    { media: "(prefers-color-scheme: light)", color: "#f0faf4" },
+  ],
+};
 
 export const metadata: Metadata = {
   title: "Future Greenhouse",

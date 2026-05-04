@@ -485,12 +485,13 @@ async function exportExcel(report: Awaited<ReturnType<typeof buildReport>>) {
   return Buffer.from(buf);
 }
 
+/** Helvetica в PDFKit без кириллицы — на Vercel нужен свой TTF в `public/fonts` (в репозитории лежит DejaVuSans). */
 function resolvePdfFont(): string | undefined {
   const candidates = [
-    path.join(process.cwd(), "public", "fonts", "NotoSans-Regular.ttf"),
     path.join(process.cwd(), "public", "fonts", "DejaVuSans.ttf"),
-    "C:\\Windows\\Fonts\\arial.ttf",
+    path.join(process.cwd(), "public", "fonts", "NotoSans-Regular.ttf"),
     "C:\\Windows\\Fonts\\arialuni.ttf",
+    "C:\\Windows\\Fonts\\arial.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
   ];

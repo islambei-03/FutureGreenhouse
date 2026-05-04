@@ -14,6 +14,7 @@ import {
 } from "chart.js";
 import type { ChartOptions } from "chart.js";
 import { Line } from "react-chartjs-2";
+import TableScroll from "@/components/ui/TableScroll";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
@@ -221,7 +222,7 @@ export default function ParametersPage() {
   }, [hasChartPoints, selectedMeta]);
 
   return (
-    <main className="space-y-4">
+    <main className="min-w-0 max-w-full space-y-4">
       {alerts.length ? (
         <div className="space-y-2">
           {alerts.map((a, i) => (
@@ -247,17 +248,17 @@ export default function ParametersPage() {
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-4 sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
             <div className="text-xl font-semibold">{tr("parameters.title")}</div>
             <div className="text-sm text-[var(--muted)] mt-1">{tr("parameters.subtitle")}</div>
           </div>
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto lg:shrink-0">
             <select
               value={selected ?? ""}
               onChange={(e) => load(Number(e.target.value), range)}
-              className="rounded-xl bg-black/20 border border-[var(--border)] px-4 py-2.5 outline-none focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent)]/20 transition"
+              className="w-full rounded-xl bg-black/20 border border-[var(--border)] px-4 py-2.5 outline-none focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent)]/20 transition sm:min-w-[12rem]"
             >
               {current.map((g) => (
                 <option key={g.id} value={g.id}>
@@ -268,7 +269,7 @@ export default function ParametersPage() {
             <select
               value={range}
               onChange={(e) => load(selected, e.target.value as "day" | "7d")}
-              className="rounded-xl bg-black/20 border border-[var(--border)] px-4 py-2.5 outline-none focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent)]/20 transition"
+              className="w-full rounded-xl bg-black/20 border border-[var(--border)] px-4 py-2.5 outline-none focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent)]/20 transition sm:w-auto"
             >
               <option value="day">{tr("parameters.range.day")}</option>
               <option value="7d">{tr("parameters.range.week")}</option>
@@ -339,15 +340,15 @@ export default function ParametersPage() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <section className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
           <div className="font-semibold">{tr("parameters.charts.temperature")}</div>
           <div className="mt-3">
             <Line options={tempChartOptions} data={tempData} />
           </div>
         </section>
 
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
+        <section className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
           <div className="font-semibold">{tr("parameters.charts.humidity")}</div>
           <div className="mt-3">
             <Line options={humChartOptions} data={humData} />
@@ -355,13 +356,13 @@ export default function ParametersPage() {
         </section>
       </div>
 
-      <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)]">
+      <section className="min-w-0 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)]">
         <div className="p-5 border-b border-[var(--border)]">
           <div className="font-semibold">{tr("parameters.table.title")}</div>
           <div className="text-sm text-[var(--muted)] mt-1">{tr("parameters.table.subtitle")}</div>
         </div>
-        <div className="overflow-auto">
-          <table className="w-full text-sm">
+        <TableScroll>
+          <table className="w-full min-w-[40rem] text-sm">
             <thead className="text-left text-[var(--muted)]">
               <tr className="border-b border-[var(--border)]">
                 <th className="p-4">{tr("parameters.table.greenhouse")}</th>
@@ -405,7 +406,7 @@ export default function ParametersPage() {
               ) : null}
             </tbody>
           </table>
-        </div>
+        </TableScroll>
       </section>
     </main>
   );

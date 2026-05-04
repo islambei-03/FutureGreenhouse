@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useMe } from "@/components/auth/AuthContext";
 import type { UserRole } from "@/lib/auth";
 import RippleButton from "@/components/ui/RippleButton";
+import AppModal from "@/components/ui/AppModal";
 import { useI18n } from "@/components/i18n/I18nContext";
 
 type GreenhouseCard = {
@@ -73,39 +74,6 @@ function IconButton({ title, onClick, disabled, children }: { title: string; onC
     >
       {children}
     </button>
-  );
-}
-
-function Modal({
-  title,
-  open,
-  onClose,
-  children,
-}: {
-  title: string;
-  open: boolean;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="absolute inset-0 grid place-items-center px-4">
-        <div className="w-full max-w-2xl rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] animate-modalIn">
-          <div className="p-5 border-b border-[var(--border)] flex items-center justify-between gap-3">
-            <div className="font-semibold">{title}</div>
-            <button
-              onClick={onClose}
-              className="size-10 grid place-items-center rounded-xl border border-[var(--border)] bg-black/20 hover:bg-white/5 transition"
-            >
-              ✕
-            </button>
-          </div>
-          <div className="p-5">{children}</div>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -260,17 +228,17 @@ export default function GreenhousesPage() {
   }
 
   return (
-    <main className="space-y-4">
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
+    <main className="min-w-0 max-w-full space-y-4">
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-4 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <div className="text-xl font-semibold">{t("greenhouses.title")}</div>
             <div className="text-sm text-[var(--muted)] mt-1">
               {t("greenhouses.subtitle")}
             </div>
           </div>
           {canEdit(role) ? (
-            <RippleButton onClick={openCreate} className="px-4 py-2.5">
+            <RippleButton onClick={openCreate} className="w-full shrink-0 px-4 py-2.5 sm:w-auto">
               {t("greenhouses.add")}
             </RippleButton>
           ) : null}
@@ -383,7 +351,7 @@ export default function GreenhousesPage() {
         ))}
       </div>
 
-      <Modal
+      <AppModal
         open={modalOpen}
         onClose={() => {
           if (!saving) setModalOpen(false);
@@ -525,7 +493,7 @@ export default function GreenhousesPage() {
             {saving ? t("common.saving") : t("common.save")}
           </RippleButton>
         </div>
-      </Modal>
+      </AppModal>
     </main>
   );
 }

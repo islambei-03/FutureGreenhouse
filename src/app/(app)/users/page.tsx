@@ -5,6 +5,8 @@ import { z } from "zod";
 import RippleButton from "@/components/ui/RippleButton";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
+import AppModal from "@/components/ui/AppModal";
+import TableScroll from "@/components/ui/TableScroll";
 import { useI18n } from "@/components/i18n/I18nContext";
 
 type UserRole = "admin" | "director" | "agronomist" | "worker";
@@ -51,39 +53,6 @@ function toneByRole(role: UserRole) {
 
 function toneByActive(active: number) {
   return active ? ("success" as const) : ("warning" as const);
-}
-
-function Modal({
-  title,
-  open,
-  onClose,
-  children,
-}: {
-  title: string;
-  open: boolean;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="absolute inset-0 grid place-items-center px-4">
-        <div className="w-full max-w-2xl rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] animate-modalIn">
-          <div className="p-5 border-b border-[var(--border)] flex items-center justify-between gap-3">
-            <div className="font-semibold">{title}</div>
-            <button
-              onClick={onClose}
-              className="size-10 grid place-items-center rounded-xl border border-[var(--border)] bg-black/20 hover:bg-white/5 transition"
-            >
-              ✕
-            </button>
-          </div>
-          <div className="p-5">{children}</div>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export default function UsersPage() {
@@ -284,23 +253,24 @@ export default function UsersPage() {
   }
 
   return (
-    <main className="space-y-4">
-      <Card className="p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
+    <main className="min-w-0 max-w-full space-y-4">
+      <Card className="p-4 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <div className="text-xl font-semibold">{tr("users.title")}</div>
             <div className="text-sm text-[var(--muted)] mt-1">
               {tr("users.subtitle")}
             </div>
           </div>
-          <RippleButton onClick={openCreate} className="px-4 py-2.5">
+          <RippleButton onClick={openCreate} className="w-full shrink-0 px-4 py-2.5 sm:w-auto">
             {tr("users.create")}
           </RippleButton>
         </div>
       </Card>
 
-      <Card as="section" className="overflow-auto">
-        <table className="w-full text-sm fg-table-stagger">
+      <Card as="section" className="min-w-0 overflow-hidden p-0">
+        <TableScroll>
+          <table className="w-full min-w-[44rem] text-sm fg-table-stagger">
           <thead className="text-left text-[var(--muted)]">
             <tr className="border-b border-[var(--border)]">
               <th className="p-4">{tr("users.table.user")}</th>
@@ -346,7 +316,7 @@ export default function UsersPage() {
                   </Badge>
                 </td>
                 <td className="p-4">
-                  <div className="flex items-center justify-end gap-2">
+                  <div className="flex flex-wrap items-center justify-end gap-2">
                     <RippleButton onClick={() => openEdit(u)} variant="outline" className="px-3 py-2">
                       {tr("common.edit")}
                     </RippleButton>
@@ -369,6 +339,7 @@ export default function UsersPage() {
             ) : null}
           </tbody>
         </table>
+        </TableScroll>
       </Card>
 
       <Card as="section">
@@ -398,7 +369,7 @@ export default function UsersPage() {
         </div>
       </Card>
 
-      <Modal
+      <AppModal
         open={modalOpen}
         onClose={() => {
           if (!saving) setModalOpen(false);
@@ -495,7 +466,7 @@ export default function UsersPage() {
             {saving ? tr("common.saving") : tr("common.save")}
           </RippleButton>
         </div>
-      </Modal>
+      </AppModal>
     </main>
   );
 }

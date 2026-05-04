@@ -15,6 +15,7 @@ import {
 import type { ChartData, ChartOptions } from "chart.js";
 import { Bar, Line } from "react-chartjs-2";
 import RippleButton from "@/components/ui/RippleButton";
+import TableScroll from "@/components/ui/TableScroll";
 import { useI18n } from "@/components/i18n/I18nContext";
 import type { I18nKey } from "@/lib/i18n";
 
@@ -215,16 +216,16 @@ export default function ReportsPage() {
   }
 
   return (
-    <main className="space-y-4">
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
+    <main className="min-w-0 max-w-full space-y-4">
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-4 sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
             <div className="text-xl font-semibold">{tr("reports.title")}</div>
             <div className="text-sm text-[var(--muted)] mt-1">
               {tr("reports.subtitle")}
             </div>
           </div>
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap lg:w-auto lg:shrink-0">
             <select
               value={period}
               onChange={(e) => {
@@ -232,20 +233,20 @@ export default function ReportsPage() {
                 setPeriod(p);
                 load(p);
               }}
-              className="rounded-xl bg-black/20 border border-[var(--border)] px-4 py-2.5 outline-none focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent)]/20 transition"
+              className="w-full rounded-xl bg-black/20 border border-[var(--border)] px-4 py-2.5 outline-none focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent)]/20 transition sm:w-auto sm:min-w-[10rem]"
             >
               <option value="day">{tr("reports.period.day")}</option>
               <option value="week">{tr("reports.period.week")}</option>
               <option value="month">{tr("reports.period.month")}</option>
               <option value="year">{tr("reports.period.year")}</option>
             </select>
-            <RippleButton onClick={() => download("pdf")} variant="outline" className="px-4 py-2.5" disabled={loading}>
+            <RippleButton onClick={() => download("pdf")} variant="outline" className="w-full px-4 py-2.5 sm:w-auto" disabled={loading}>
               {tr("reports.exportPdf")}
             </RippleButton>
             <RippleButton
               onClick={() => download("excel")}
               variant="outline"
-              className="px-4 py-2.5"
+              className="w-full px-4 py-2.5 sm:w-auto"
               disabled={loading}
             >
               {tr("reports.exportExcel")}
@@ -269,8 +270,8 @@ export default function ReportsPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <section className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
           <div className="font-semibold">{tr("reports.chart.title")}</div>
           <div className="text-sm text-[var(--muted)] mt-1">
             {tr("reports.chart.subtitle")}
@@ -278,13 +279,13 @@ export default function ReportsPage() {
           <div className="mt-4">{barData ? <Bar options={barOptions} data={barData} /> : null}</div>
         </section>
 
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)]">
+        <section className="min-w-0 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)]">
           <div className="p-5 border-b border-[var(--border)]">
             <div className="font-semibold">{tr("reports.table.title")}</div>
             <div className="text-sm text-[var(--muted)] mt-1">{tr("reports.table.subtitle")}</div>
           </div>
-          <div className="overflow-auto">
-            <table className="w-full text-sm fg-table-stagger">
+          <TableScroll>
+            <table className="w-full min-w-[22rem] text-sm fg-table-stagger">
               <thead className="text-left text-[var(--muted)]">
                 <tr className="border-b border-[var(--border)]">
                   <th className="p-4">{tr("reports.table.greenhouse")}</th>
@@ -307,24 +308,24 @@ export default function ReportsPage() {
                 ) : null}
               </tbody>
             </table>
-          </div>
+          </TableScroll>
         </section>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <section className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
           <div className="font-semibold">{tr("reports.kpi.water")}</div>
           <div className="text-sm text-[var(--muted)] mt-1">{tr(REPORT_PERIOD_I18N[period])}</div>
           <div className="mt-4">{waterDailyData ? <Bar options={compactBarOptions} data={waterDailyData} /> : null}</div>
         </section>
 
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
+        <section className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
           <div className="font-semibold">{tr("tasks.title")}</div>
           <div className="text-sm text-[var(--muted)] mt-1">{tr(REPORT_PERIOD_I18N[period])}</div>
           <div className="mt-4">{tasksDailyData ? <Bar options={compactBarOptions} data={tasksDailyData} /> : null}</div>
         </section>
 
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
+        <section className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
           <div className="font-semibold">{tr("parameters.title")}</div>
           <div className="text-sm text-[var(--muted)] mt-1">{tr(REPORT_PERIOD_I18N[period])}</div>
           <div className="mt-4">{sensorsDailyData ? <Line options={lineOptions} data={sensorsDailyData} /> : null}</div>

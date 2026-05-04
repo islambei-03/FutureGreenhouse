@@ -5,6 +5,7 @@ import { useMe } from "@/components/auth/AuthContext";
 import { RoleLabel } from "@/lib/rbac";
 import { useI18n } from "@/components/i18n/I18nContext";
 import RippleButton from "@/components/ui/RippleButton";
+import TableScroll from "@/components/ui/TableScroll";
 
 export default function ProfileClient() {
   const me = useMe();
@@ -67,9 +68,9 @@ export default function ProfileClient() {
   const avatarLetter = (profile?.full_name || me?.fullName || "P")[0]?.toUpperCase();
 
   return (
-    <main className="space-y-4">
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-6">
-        <div className="flex items-center gap-4">
+    <main className="min-w-0 max-w-full space-y-4">
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-4 sm:p-6">
+        <div className="flex flex-wrap items-center gap-4">
           <div className="size-14 rounded-2xl grid place-items-center border border-[var(--border)] bg-black/20 text-lg font-semibold">
             {avatarLetter}
           </div>
@@ -79,7 +80,7 @@ export default function ProfileClient() {
               {tr("profile.role")}: <span className="text-[var(--text)]">{roleLabel}</span>
             </div>
           </div>
-          <div className="ml-auto text-xs text-[var(--muted)]">{loading ? tr("common.loading") : ""}</div>
+          <div className="w-full text-xs text-[var(--muted)] sm:ml-auto sm:w-auto">{loading ? tr("common.loading") : ""}</div>
         </div>
       </div>
 
@@ -87,8 +88,8 @@ export default function ProfileClient() {
         <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div>
       ) : null}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-6">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <section className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-4 sm:p-6">
           <div className="font-semibold">{tr("profile.data.title")}</div>
           <div className="mt-3 space-y-2 text-sm text-[var(--muted)]">
             <div>
@@ -138,7 +139,7 @@ export default function ProfileClient() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-6">
+        <section className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-4 sm:p-6">
           <div className="font-semibold">{tr("profile.security.title")}</div>
           <div className="mt-3 text-sm text-[var(--muted)]">{tr("profile.security.changePassword")}</div>
           <div className="mt-3 grid grid-cols-1 gap-2">
@@ -188,15 +189,16 @@ export default function ProfileClient() {
         </section>
       </div>
 
-      <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-6">
-        <div className="flex items-center justify-between gap-3">
+      <section className="min-w-0 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-4 sm:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="font-semibold">{tr("profile.logins.title")}</div>
-          <RippleButton variant="outline" className="px-4 py-2.5" onClick={load} disabled={loading}>
+          <RippleButton variant="outline" className="w-full px-4 py-2.5 sm:w-auto" onClick={load} disabled={loading}>
             {tr("ai.refresh")}
           </RippleButton>
         </div>
-        <div className="mt-4 overflow-auto">
-          <table className="w-full text-sm">
+        <div className="mt-4">
+          <TableScroll>
+            <table className="w-full min-w-[32rem] text-sm">
             <thead className="text-left text-[var(--muted)]">
               <tr className="border-b border-[var(--border)]">
                 <th className="p-3">{tr("profile.logins.when")}</th>
@@ -221,6 +223,7 @@ export default function ProfileClient() {
               ) : null}
             </tbody>
           </table>
+          </TableScroll>
         </div>
       </section>
     </main>

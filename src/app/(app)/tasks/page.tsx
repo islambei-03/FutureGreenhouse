@@ -181,7 +181,7 @@ export default function TasksPage() {
   }
 
   return (
-    <main className="space-y-4">
+    <main className="min-w-0 max-w-full space-y-4">
       <Card className="p-6">
         <div className="flex items-start justify-between gap-4">
           <div>

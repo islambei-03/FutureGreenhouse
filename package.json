@@ -32,7 +32,6 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@netlify/plugin-nextjs": "^5.15.10",
     "@playwright/test": "^1.54.2",
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",

@@ -152,7 +152,7 @@ export default function SensorEntryPage() {
   }
 
   return (
-    <main className="space-y-4">
+    <main className="min-w-0 max-w-full space-y-4">
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -171,8 +171,8 @@ export default function SensorEntryPage() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <section className="xl:col-span-2 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <section className="min-w-0 xl:col-span-2 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
           <div className="font-semibold">{tr("sensorEntry.formTitle")}</div>
           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2 md:col-span-2">
@@ -269,7 +269,7 @@ export default function SensorEntryPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)]">
+        <section className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)]">
           <div className="p-5 border-b border-[var(--border)]">
             <div className="font-semibold">{tr("sensorEntry.recent.title")}</div>
             <div className="text-sm text-[var(--muted)] mt-1">{tr("sensorEntry.recent.subtitle")}</div>
@@ -281,7 +281,7 @@ export default function SensorEntryPage() {
                 <div className="mt-2 text-xs text-[var(--muted)]">
                   {r.recorded_at}
                 </div>
-                <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
                   <div className="rounded-xl border border-[var(--border)] bg-black/20 px-2 py-1.5 text-[var(--muted)]">
                     T: <span className="text-[var(--text)]">{r.temperature}°C</span>
                   </div>
@@ -300,8 +300,8 @@ export default function SensorEntryPage() {
       </div>
 
       {toast ? (
-        <div className="fixed right-4 top-20 z-50 animate-slideInRight">
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] px-4 py-3 text-sm">
+        <div className="fixed left-3 right-3 top-20 z-50 animate-slideInRight sm:left-auto sm:right-4 sm:w-auto">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] px-4 py-3 text-sm sm:max-w-sm sm:ml-auto">
             {toast}
           </div>
         </div>

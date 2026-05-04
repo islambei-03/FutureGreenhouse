@@ -207,23 +207,23 @@ export default function WateringPage() {
   }
 
   return (
-    <main className="space-y-4">
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
+    <main className="min-w-0 max-w-full space-y-4">
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-4 sm:p-6">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <div className="min-w-0">
             <div className="text-xl font-semibold">{tr("watering.title")}</div>
             <div className="text-sm text-[var(--muted)] mt-1">
               {tr("watering.subtitle")}
             </div>
           </div>
-          <div className="text-xs text-[var(--muted)]">
+          <div className="shrink-0 text-xs text-[var(--muted)]">
             {loading ? tr("common.loading") : `${tr("watering.scheduledToday")}: ${timeline.length}`}
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <section className="xl:col-span-2 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)]">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <section className="min-w-0 xl:col-span-2 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)]">
           <div className="p-5 border-b border-[var(--border)]">
             <div className="font-semibold">{tr("watering.timeline.title")}</div>
             <div className="text-sm text-[var(--muted)] mt-1">{tr("watering.timeline.subtitle")}</div>
@@ -233,13 +233,13 @@ export default function WateringPage() {
             {timeline.length ? (
               <div className="space-y-3">
                 {timeline.map((it) => (
-                  <div key={it.id} className="flex gap-4">
-                    <div className="w-16 text-right">
+                  <div key={it.id} className="flex min-w-0 gap-3 sm:gap-4">
+                    <div className="w-14 shrink-0 text-right sm:w-16">
                       <div className="text-sm font-semibold">{formatTime(it.scheduled_at)}</div>
                       <div className="text-[10px] text-[var(--muted)]">{it.duration_minutes} мин</div>
                     </div>
 
-                    <div className="relative">
+                    <div className="relative shrink-0">
                       <div className="absolute left-2 top-0 bottom-0 w-px bg-[var(--border)]" />
                       <div
                         className={[
@@ -249,15 +249,15 @@ export default function WateringPage() {
                       />
                     </div>
 
-                    <div className="flex-1 rounded-2xl border border-[var(--border)] bg-black/10 p-4 hover:bg-white/5 transition">
-                      <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1 rounded-2xl border border-[var(--border)] bg-black/10 p-4 hover:bg-white/5 transition">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="min-w-0">
                           <div className="font-medium truncate">{it.greenhouse_name}</div>
                           <div className="text-xs text-[var(--muted)] mt-1">
                             {it.watering_type} · {it.volume_liters} л
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex shrink-0 flex-wrap items-center gap-2">
                           <span
                             className={[
                               "inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium",
@@ -312,7 +312,7 @@ export default function WateringPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)]">
+        <section className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)]">
           <div className="p-5 border-b border-[var(--border)]">
             <div className="font-semibold">{tr("watering.add.title")}</div>
             <div className="text-sm text-[var(--muted)] mt-1">

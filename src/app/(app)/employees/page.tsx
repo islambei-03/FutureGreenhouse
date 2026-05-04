@@ -5,6 +5,8 @@ import { z } from "zod";
 import { useMe } from "@/components/auth/AuthContext";
 import type { UserRole } from "@/lib/auth";
 import RippleButton from "@/components/ui/RippleButton";
+import AppModal from "@/components/ui/AppModal";
+import TableScroll from "@/components/ui/TableScroll";
 import { useI18n } from "@/components/i18n/I18nContext";
 
 type EmployeeStatus = "на смене" | "перерыв" | "больничный" | "выходной";
@@ -46,39 +48,6 @@ function statusKey(status: EmployeeStatus) {
   if (status === "перерыв") return "enum.employeeStatus.break" as const;
   if (status === "больничный") return "enum.employeeStatus.sick" as const;
   return "enum.employeeStatus.dayOff" as const;
-}
-
-function Modal({
-  title,
-  open,
-  onClose,
-  children,
-}: {
-  title: string;
-  open: boolean;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="absolute inset-0 grid place-items-center px-4">
-        <div className="w-full max-w-2xl rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] animate-modalIn">
-          <div className="p-5 border-b border-[var(--border)] flex items-center justify-between gap-3">
-            <div className="font-semibold">{title}</div>
-            <button
-              onClick={onClose}
-              className="size-10 grid place-items-center rounded-xl border border-[var(--border)] bg-black/20 hover:bg-white/5 transition"
-            >
-              ✕
-            </button>
-          </div>
-          <div className="p-5">{children}</div>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export default function EmployeesPage() {
@@ -229,17 +198,17 @@ export default function EmployeesPage() {
   }
 
   return (
-    <main className="space-y-4">
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
+    <main className="min-w-0 max-w-full space-y-4">
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-4 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <div className="text-xl font-semibold">{tr("employees.title")}</div>
             <div className="text-sm text-[var(--muted)] mt-1">
               {tr("employees.subtitle")}
             </div>
           </div>
           {canCrud(role) ? (
-            <RippleButton onClick={openCreate} className="px-4 py-2.5">
+            <RippleButton onClick={openCreate} className="w-full shrink-0 px-4 py-2.5 sm:w-auto">
               {tr("employees.add")}
             </RippleButton>
           ) : null}
@@ -273,8 +242,9 @@ export default function EmployeesPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] overflow-auto">
-        <table className="w-full text-sm fg-table-stagger">
+      <div className="min-w-0 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)]">
+        <TableScroll>
+          <table className="w-full min-w-[48rem] text-sm fg-table-stagger">
           <thead className="text-left text-[var(--muted)]">
             <tr className="border-b border-[var(--border)]">
               <th className="p-4">{tr("employees.table.employee")}</th>
@@ -314,7 +284,7 @@ export default function EmployeesPage() {
                   </span>
                 </td>
                 <td className="p-4">
-                  <div className="flex items-center justify-end gap-2">
+                  <div className="flex flex-wrap items-center justify-end gap-2">
                     {canCrud(role) ? (
                       <>
                         <button
@@ -346,9 +316,10 @@ export default function EmployeesPage() {
             ) : null}
           </tbody>
         </table>
+        </TableScroll>
       </div>
 
-      <Modal
+      <AppModal
         open={modalOpen}
         onClose={() => {
           if (!saving) setModalOpen(false);
@@ -455,7 +426,7 @@ export default function EmployeesPage() {
             {saving ? tr("common.saving") : tr("common.save")}
           </RippleButton>
         </div>
-      </Modal>
+      </AppModal>
     </main>
   );
 }

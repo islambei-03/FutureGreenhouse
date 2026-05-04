@@ -14,7 +14,7 @@ export default function Card({
   return (
     <Tag
       className={[
-        "rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)]",
+        "min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)]",
         className,
       ]
         .filter(Boolean)

@@ -22,25 +22,43 @@ function databaseUrlForPool(rawFromEnv: string): string {
   return rawFromEnv.replace(/\bsslmode=no-verify\b/gi, "sslmode=require");
 }
 
-/** Supabase (direct или pooler): на Vercel/Node часто падает проверка цепочки сертификатов — по умолчанию ослабляем TLS в production. Строго: `DATABASE_SSL_REJECT_UNAUTHORIZED=1`. */
+/** Supabase (direct или pooler). */
 function isSupabaseDatabaseUrl(raw: string): boolean {
   return raw.includes("supabase.co") || raw.includes("pooler.supabase.com");
 }
 
-/** Ослабить проверку TLS: `sslmode=no-verify`, env `DATABASE_SSL_REJECT_UNAUTHORIZED=0`, или production + Supabase без явного `=1`. */
+/**
+ * На Vercel к внешнему Postgres часто падает verify цепочки (`self-signed certificate in certificate chain`).
+ * Ослабляем TLS, если: no-verify в URI, явный env `=0`, production + (Supabase ИЛИ любой хост на Vercel).
+ * Строгая проверка: только `DATABASE_SSL_REJECT_UNAUTHORIZED=1`.
+ */
 function wantsRelaxedSsl(rawDatabaseUrl: string): boolean {
   if (/\bsslmode=no-verify\b/i.test(rawDatabaseUrl)) return true;
   if (process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "0") return true;
   if (process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "1") return false;
-  if (process.env.NODE_ENV === "production" && isSupabaseDatabaseUrl(rawDatabaseUrl)) return true;
+  if (process.env.NODE_ENV !== "production") return false;
+  if (isSupabaseDatabaseUrl(rawDatabaseUrl)) return true;
+  if (process.env.VERCEL === "1") return true;
   return false;
+}
+
+/** Иначе `sslmode=require` в URI может конфликтовать с `ssl.rejectUnauthorized` в `pg`. */
+function stripSslModeQuery(connectionString: string): string {
+  const q = connectionString.indexOf("?");
+  if (q === -1) return connectionString;
+  const base = connectionString.slice(0, q);
+  const rest = connectionString.slice(q + 1);
+  const parts = rest.split("&").filter((p) => p.length > 0 && !/^sslmode=/i.test(p));
+  if (parts.length === 0) return base;
+  return `${base}?${parts.join("&")}`;
 }
 
 function getPool() {
   if (globalThis.__dbPool) return globalThis.__dbPool;
   const rawUrl = ENV.DATABASE_URL();
-  const connectionString = databaseUrlForPool(rawUrl);
   const relaxed = wantsRelaxedSsl(rawUrl);
+  const normalized = databaseUrlForPool(rawUrl);
+  const connectionString = relaxed ? stripSslModeQuery(normalized) : normalized;
   const pool = new pg.Pool({
     connectionString,
     ...(relaxed ? { ssl: { rejectUnauthorized: false } } : { ssl: { rejectUnauthorized: true } }),

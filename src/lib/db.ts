@@ -22,10 +22,18 @@ function databaseUrlForPool(rawFromEnv: string): string {
   return rawFromEnv.replace(/\bsslmode=no-verify\b/gi, "sslmode=require");
 }
 
-/** Ослабить проверку TLS: `sslmode=no-verify` в исходном URI Supabase или `DATABASE_SSL_REJECT_UNAUTHORIZED=0` на Vercel при ошибке certificate chain. */
+/** Supabase (direct или pooler): на Vercel/Node часто падает проверка цепочки сертификатов — по умолчанию ослабляем TLS в production. Строго: `DATABASE_SSL_REJECT_UNAUTHORIZED=1`. */
+function isSupabaseDatabaseUrl(raw: string): boolean {
+  return raw.includes("supabase.co") || raw.includes("pooler.supabase.com");
+}
+
+/** Ослабить проверку TLS: `sslmode=no-verify`, env `DATABASE_SSL_REJECT_UNAUTHORIZED=0`, или production + Supabase без явного `=1`. */
 function wantsRelaxedSsl(rawDatabaseUrl: string): boolean {
   if (/\bsslmode=no-verify\b/i.test(rawDatabaseUrl)) return true;
-  return process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "0";
+  if (process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "0") return true;
+  if (process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "1") return false;
+  if (process.env.NODE_ENV === "production" && isSupabaseDatabaseUrl(rawDatabaseUrl)) return true;
+  return false;
 }
 
 function getPool() {

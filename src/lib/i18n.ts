@@ -227,6 +227,20 @@ export type I18nKey =
   | "reports.table.subtitle"
   | "reports.table.greenhouse"
   | "reports.table.harvested"
+  | "reports.overview.hint"
+  | "reports.tab.overview"
+  | "reports.tab.charts"
+  | "reports.tab.data"
+  | "reports.chart.tasksShare"
+  | "reports.chart.wateringShare"
+  | "reports.chart.taskPriorities"
+  | "reports.chart.cultureStages"
+  | "reports.chart.avgTempGh"
+  | "reports.chart.co2Daily"
+  | "reports.chart.notificationsByType"
+  | "reports.charts.analyticsBlock"
+  | "reports.legend.done"
+  | "reports.legend.pending"
   | "notifications.title"
   | "notifications.unread"
   | "notifications.markAllRead"
@@ -623,7 +637,7 @@ const RU: Record<I18nKey, string> = {
   "employees.status.sick": "больничный",
   "employees.status.dayOff": "выходной",
   "reports.title": "Отчёты",
-  "reports.subtitle": "KPI + график по теплицам. Экспорт в PDF и Excel.",
+  "reports.subtitle": "KPI, таблицы и расширенные графики. Экспорт в PDF и Excel (листы «Сводка», «Таблицы», «Графики»).",
   "reports.period.day": "День",
   "reports.period.week": "Неделя",
   "reports.period.month": "Месяц",
@@ -639,6 +653,21 @@ const RU: Record<I18nKey, string> = {
   "reports.table.subtitle": "По теплицам",
   "reports.table.greenhouse": "Теплица",
   "reports.table.harvested": "Урожай (партий)",
+  "reports.tab.overview": "Обзор",
+  "reports.overview.hint":
+    "На вкладке «Графики» — урожай, вода, задачи, климат и ещё 6 диаграмм аналитики. На «Данные» — таблицы.",
+  "reports.tab.charts": "Графики",
+  "reports.tab.data": "Данные",
+  "reports.chart.tasksShare": "Задачи: выполнено / не выполнено",
+  "reports.chart.wateringShare": "Полив: выполнено / ожидает",
+  "reports.chart.taskPriorities": "Задачи по приоритетам",
+  "reports.chart.cultureStages": "Культуры по стадиям",
+  "reports.chart.avgTempGh": "Средняя температура по теплицам",
+  "reports.chart.co2Daily": "CO₂ по дням",
+  "reports.chart.notificationsByType": "Уведомления по типам",
+  "reports.charts.analyticsBlock": "Дополнительная аналитика (6 диаграмм)",
+  "reports.legend.done": "Выполнено",
+  "reports.legend.pending": "Не выполнено / ожидает",
   "notifications.title": "Уведомления",
   "notifications.unread": "Непрочитанных",
   "notifications.markAllRead": "Отметить все прочитанными",
@@ -1037,7 +1066,7 @@ const KK: Record<I18nKey, string> = {
   "employees.status.sick": "ауруханада",
   "employees.status.dayOff": "демалыс",
   "reports.title": "Есептер",
-  "reports.subtitle": "KPI + жылыжайлар бойынша график. PDF және Excel экспорты.",
+  "reports.subtitle": "KPI, кестелер және кеңейтілген графиктер. PDF және Excel экспорты («Қорытынды», «Кестелер», «Графиктер» парақтары).",
   "reports.period.day": "Күн",
   "reports.period.week": "Апта",
   "reports.period.month": "Ай",
@@ -1053,6 +1082,21 @@ const KK: Record<I18nKey, string> = {
   "reports.table.subtitle": "Жылыжайлар бойынша",
   "reports.table.greenhouse": "Жылыжай",
   "reports.table.harvested": "Өнім (партия)",
+  "reports.tab.overview": "Шолу",
+  "reports.overview.hint":
+    "«Графиктер» бөлімінде — өнім, су, тапсырмалар, климат және тағы 6 талдау диаграммасы. «Деректер» — кестелер.",
+  "reports.tab.charts": "Графиктер",
+  "reports.tab.data": "Деректер",
+  "reports.chart.tasksShare": "Тапсырмалар: орындалған / орындалмаған",
+  "reports.chart.wateringShare": "Суғару: орындалған / күтуде",
+  "reports.chart.taskPriorities": "Тапсырмалар басымдығы бойынша",
+  "reports.chart.cultureStages": "Дақылдар сатысы бойынша",
+  "reports.chart.avgTempGh": "Жылыжайлар бойынша орташа температура",
+  "reports.chart.co2Daily": "CO₂ күндер бойынша",
+  "reports.chart.notificationsByType": "Хабарландырулар түрі бойынша",
+  "reports.charts.analyticsBlock": "Қосымша талдау (6 диаграмма)",
+  "reports.legend.done": "Орындалған",
+  "reports.legend.pending": "Орындалмаған / күтуде",
   "notifications.title": "Хабарландырулар",
   "notifications.unread": "Оқылмаған",
   "notifications.markAllRead": "Барлығын оқылды деп белгілеу",

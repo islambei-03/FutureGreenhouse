@@ -127,13 +127,6 @@ export default function Topbar({
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="hidden sm:block">
-            <input
-              placeholder={t("topbar.search")}
-              className="w-72 rounded-xl bg-black/20 border border-[var(--border)] px-4 py-2.5 outline-none focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent)]/20 transition"
-            />
-          </div>
-
           <button
             onClick={toggleLocale}
             className="h-10 px-3 rounded-xl border border-[var(--border)] bg-black/20 hover:bg-white/5 transition text-sm font-semibold"

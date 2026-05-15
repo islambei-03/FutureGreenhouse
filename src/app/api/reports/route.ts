@@ -168,6 +168,105 @@ async function loadSensorsDaily(iv: string) {
     .all(iv)) as Array<{ day: string; avgTemp: number | null; avgHum: number | null }>;
 }
 
+type ReportAnalytics = {
+  taskPriorities: Array<{ priority: string; count: number }>;
+  wateringStatus: { done: number; pending: number };
+  cultureStages: Array<{ stage: string; count: number }>;
+  greenhouseAvgTemp: Array<{ name: string; avg_temp: number }>;
+  co2Daily: Array<{ day: string; avgCo2: number }>;
+  notificationsByType: Array<{ type: string; count: number }>;
+};
+
+type FullReport = Awaited<ReturnType<typeof buildReport>> & { analytics: ReportAnalytics };
+
+async function loadReportAnalytics(iv: string): Promise<ReportAnalytics> {
+  const [taskPriorities, wateringRow, cultureStages, greenhouseAvgTemp, co2Daily, notificationsByType] =
+    await Promise.all([
+      (await db()
+        .prepare(
+          `
+      SELECT priority, COUNT(*)::int as count
+      FROM tasks
+      WHERE created_at >= (NOW() AT TIME ZONE 'UTC' - ?::interval)
+        AND created_at <= (NOW() AT TIME ZONE 'UTC')
+      GROUP BY priority
+      ORDER BY CASE priority WHEN 'срочный' THEN 1 WHEN 'высокий' THEN 2 ELSE 3 END
+    `,
+        )
+        .all(iv)) as Array<{ priority: string; count: number }>,
+      (await db()
+        .prepare(
+          `
+      SELECT
+        COALESCE(SUM(CASE WHEN is_done = 1 THEN 1 ELSE 0 END), 0)::int as done,
+        COALESCE(SUM(CASE WHEN is_done = 0 THEN 1 ELSE 0 END), 0)::int as pending
+      FROM watering_schedule
+      WHERE scheduled_at >= (NOW() AT TIME ZONE 'UTC' - ?::interval)
+        AND scheduled_at <= (NOW() AT TIME ZONE 'UTC')
+    `,
+        )
+        .get(iv)) as { done: number; pending: number } | undefined,
+      (await db()
+        .prepare(
+          `
+      SELECT stage, COUNT(*)::int as count
+      FROM cultures
+      GROUP BY stage
+      ORDER BY count DESC
+    `,
+        )
+        .all()) as Array<{ stage: string; count: number }>,
+      (await db()
+        .prepare(
+          `
+      SELECT g.name, AVG(s.temperature)::float8 as avg_temp
+      FROM sensor_data s
+      JOIN greenhouses g ON g.id = s.greenhouse_id
+      WHERE s.recorded_at >= (NOW() AT TIME ZONE 'UTC' - ?::interval)
+        AND s.recorded_at <= (NOW() AT TIME ZONE 'UTC')
+      GROUP BY g.id, g.name
+      ORDER BY g.name ASC
+    `,
+        )
+        .all(iv)) as Array<{ name: string; avg_temp: number }>,
+      (await db()
+        .prepare(
+          `
+      SELECT
+        to_char(date_trunc('day', recorded_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD') as day,
+        AVG(co2)::float8 as "avgCo2"
+      FROM sensor_data
+      WHERE recorded_at >= (NOW() AT TIME ZONE 'UTC' - ?::interval)
+        AND recorded_at <= (NOW() AT TIME ZONE 'UTC')
+      GROUP BY 1
+      ORDER BY 1 ASC
+    `,
+        )
+        .all(iv)) as Array<{ day: string; avgCo2: number }>,
+      (await db()
+        .prepare(
+          `
+      SELECT type, COUNT(*)::int as count
+      FROM notifications
+      WHERE created_at >= (NOW() AT TIME ZONE 'UTC' - ?::interval)
+        AND created_at <= (NOW() AT TIME ZONE 'UTC')
+      GROUP BY type
+      ORDER BY count DESC
+    `,
+        )
+        .all(iv)) as Array<{ type: string; count: number }>,
+    ]);
+
+  return {
+    taskPriorities,
+    wateringStatus: wateringRow ?? { done: 0, pending: 0 },
+    cultureStages,
+    greenhouseAvgTemp,
+    co2Daily,
+    notificationsByType,
+  };
+}
+
 const thinBorder: Partial<ExcelJS.Borders> = {
   top: { style: "thin", color: { argb: "FFCCCCCC" } },
   left: { style: "thin", color: { argb: "FFCCCCCC" } },
@@ -187,13 +286,16 @@ function stylePairRow(ws: ExcelJS.Worksheet, row: number, cols: number) {
   }
 }
 
-/** PNG для вставки в Excel (Chart.js-конфиг через QuickChart). Без сети вернёт null. */
-async function fetchQuickChartPng(chart: Record<string, unknown>): Promise<Buffer | null> {
+/** PNG для вставки в Excel/PDF (Chart.js через QuickChart). Без сети вернёт null. */
+async function fetchQuickChartPng(
+  chart: Record<string, unknown>,
+  size: { w: number; h: number } = { w: 540, h: 280 },
+): Promise<Buffer | null> {
   try {
     const u = new URL("https://quickchart.io/chart");
     u.searchParams.set("c", JSON.stringify(chart));
-    u.searchParams.set("w", "540");
-    u.searchParams.set("h", "280");
+    u.searchParams.set("w", String(size.w));
+    u.searchParams.set("h", String(size.h));
     u.searchParams.set("bkg", "#ffffff");
     const ac = new AbortController();
     const to = setTimeout(() => ac.abort(), 14_000);
@@ -210,40 +312,62 @@ function shortChartLabels(names: string[], max = 18): string[] {
   return names.map((s) => (s.length <= max ? s : `${s.slice(0, max - 1)}…`));
 }
 
-async function exportExcel(report: Awaited<ReturnType<typeof buildReport>>) {
+function priorityRu(p: string) {
+  if (p === "срочный") return "Срочный";
+  if (p === "высокий") return "Высокий";
+  return "Обычный";
+}
+
+function notifTypeRu(t: string) {
+  const m: Record<string, string> = {
+    тревога: "Тревога",
+    предупреждение: "Предупреждение",
+    информация: "Информация",
+    успех: "Успех",
+  };
+  return m[t] ?? t;
+}
+
+function excelSectionHeader(ws: ExcelJS.Worksheet, row: number, title: string): number {
+  ws.mergeCells(row, 1, row, 6);
+  const c = ws.getCell(row, 1);
+  c.value = title;
+  c.font = { bold: true, size: 12 };
+  c.fill = sectionFill;
+  c.border = thinBorder;
+  return row + 1;
+}
+
+async function exportExcel(report: FullReport) {
   const wb = new ExcelJS.Workbook();
   wb.creator = "Future Greenhouse";
   wb.created = new Date();
+  const colWidths = [28, 18, 14, 14, 14, 14];
 
-  const ws = wb.addWorksheet("Отчёт", {
+  const applyCols = (ws: ExcelJS.Worksheet) => {
+    colWidths.forEach((w, i) => {
+      ws.getColumn(i + 1).width = w;
+    });
+  };
+
+  // ——— Лист «Сводка» ———
+  const sum = wb.addWorksheet("Сводка", {
     views: [{ state: "frozen", ySplit: 2, activeCell: "A3", showGridLines: true }],
   });
-  [28, 18, 14, 14, 14, 14].forEach((w, i) => {
-    ws.getColumn(i + 1).width = w;
-  });
-
+  applyCols(sum);
   let row = 1;
-  ws.mergeCells(row, 1, row, 6);
-  const title = ws.getCell(row, 1);
+  sum.mergeCells(row, 1, row, 6);
+  const title = sum.getCell(row, 1);
   title.value = "Future Greenhouse — отчёт";
   title.font = { bold: true, size: 14 };
   title.alignment = { horizontal: "center", vertical: "middle" };
   row++;
+  sum.getCell(row, 1).value = "Период";
+  sum.getCell(row, 2).value = report.periodTitle;
+  sum.getCell(row, 1).font = { bold: true };
+  row += 2;
 
-  ws.getCell(row, 1).value = "Период";
-  ws.getCell(row, 2).value = report.periodTitle;
-  ws.getCell(row, 1).font = { bold: true };
-  row++;
-  row++;
-
-  ws.mergeCells(row, 1, row, 6);
-  const kpiHead = ws.getCell(row, 1);
-  kpiHead.value = "KPI";
-  kpiHead.font = { bold: true, size: 12 };
-  kpiHead.fill = sectionFill;
-  kpiHead.border = thinBorder;
-  row++;
-
+  row = excelSectionHeader(sum, row, "KPI");
   const kpiLines: Array<[string, string | number]> = [
     ["Урожай (партий)", report.kpi.harvested],
     ["Расход воды (л)", Math.round(report.kpi.waterLiters * 100) / 100],
@@ -252,28 +376,31 @@ async function exportExcel(report: Awaited<ReturnType<typeof buildReport>>) {
     ["Выполнение задач (%)", report.kpi.tasksCompletionPct],
   ];
   for (const [k, v] of kpiLines) {
-    ws.getCell(row, 1).value = k;
-    ws.getCell(row, 2).value = v;
-    stylePairRow(ws, row, 2);
+    sum.getCell(row, 1).value = k;
+    sum.getCell(row, 2).value = v;
+    stylePairRow(sum, row, 2);
     row++;
   }
   row++;
+  sum.mergeCells(row, 1, row, 6);
+  sum.getCell(row, 1).value =
+    "Полные таблицы — лист «Таблицы». Диаграммы (PNG) — лист «Графики» (нужен интернет quickchart.io при экспорте).";
+  sum.getCell(row, 1).font = { italic: true, size: 10 };
+  sum.getCell(row, 1).alignment = { wrapText: true };
 
-  ws.mergeCells(row, 1, row, 6);
-  const ghHead = ws.getCell(row, 1);
-  ghHead.value = "Урожай по теплицам";
-  ghHead.font = { bold: true, size: 12 };
-  ghHead.fill = sectionFill;
-  ghHead.border = thinBorder;
-  row++;
-
+  // ——— Лист «Таблицы» ———
+  const ws = wb.addWorksheet("Таблицы", {
+    views: [{ state: "frozen", ySplit: 1, activeCell: "A2", showGridLines: true }],
+  });
+  applyCols(ws);
+  row = 1;
+  row = excelSectionHeader(ws, row, "Урожай по теплицам");
   const ghHeaderRow = row;
   ws.getCell(row, 1).value = "Теплица";
   ws.getCell(row, 2).value = "Урожай (партий)";
   ws.getRow(row).font = { bold: true };
   stylePairRow(ws, row, 2);
   row++;
-
   for (const r of report.table) {
     ws.getCell(row, 1).value = r.name;
     ws.getCell(row, 2).value = r.harvested;
@@ -289,14 +416,7 @@ async function exportExcel(report: Awaited<ReturnType<typeof buildReport>>) {
   }
   row++;
 
-  ws.mergeCells(row, 1, row, 6);
-  const wHead = ws.getCell(row, 1);
-  wHead.value = "Тренд: расход воды по дням";
-  wHead.font = { bold: true, size: 12 };
-  wHead.fill = sectionFill;
-  wHead.border = thinBorder;
-  row++;
-
+  row = excelSectionHeader(ws, row, "Тренд: расход воды по дням");
   ws.getCell(row, 1).value = "День";
   ws.getCell(row, 2).value = "Литры";
   ws.getRow(row).font = { bold: true };
@@ -318,14 +438,7 @@ async function exportExcel(report: Awaited<ReturnType<typeof buildReport>>) {
   }
   row++;
 
-  ws.mergeCells(row, 1, row, 6);
-  const tHead = ws.getCell(row, 1);
-  tHead.value = "Тренд: задачи по дням";
-  tHead.font = { bold: true, size: 12 };
-  tHead.fill = sectionFill;
-  tHead.border = thinBorder;
-  row++;
-
+  row = excelSectionHeader(ws, row, "Тренд: задачи по дням");
   ws.getCell(row, 1).value = "День";
   ws.getCell(row, 2).value = "Всего";
   ws.getCell(row, 3).value = "Выполнено";
@@ -349,14 +462,7 @@ async function exportExcel(report: Awaited<ReturnType<typeof buildReport>>) {
   }
   row++;
 
-  ws.mergeCells(row, 1, row, 6);
-  const sHead = ws.getCell(row, 1);
-  sHead.value = "Тренд: датчики (средние по дням)";
-  sHead.font = { bold: true, size: 12 };
-  sHead.fill = sectionFill;
-  sHead.border = thinBorder;
-  row++;
-
+  row = excelSectionHeader(ws, row, "Тренд: датчики (средние по дням)");
   ws.getCell(row, 1).value = "День";
   ws.getCell(row, 2).value = "Средн. T, °C";
   ws.getCell(row, 3).value = "Средн. H, %";
@@ -384,21 +490,119 @@ async function exportExcel(report: Awaited<ReturnType<typeof buildReport>>) {
       rules: [{ type: "dataBar", priority: 5, gradient: true, cfvo: [{ type: "min" }, { type: "max" }] }],
     });
   }
+  row++;
 
+  row = excelSectionHeader(ws, row, "CO₂ по дням (среднее)");
+  ws.getCell(row, 1).value = "День";
+  ws.getCell(row, 2).value = "CO₂, ppm";
+  ws.getRow(row).font = { bold: true };
+  stylePairRow(ws, row, 2);
   row++;
-  ws.mergeCells(row, 1, row, 6);
-  const chartNote = ws.getCell(row, 1);
-  chartNote.value =
-    "Графики ниже — встроенные PNG (quickchart.io). Нужен интернет при экспорте; если блок пустой, сервис недоступен.";
-  chartNote.font = { italic: true, size: 10 };
-  chartNote.alignment = { wrapText: true };
+  for (const r of report.analytics.co2Daily) {
+    ws.getCell(row, 1).value = r.day;
+    ws.getCell(row, 2).value = Math.round(r.avgCo2 * 10) / 10;
+    stylePairRow(ws, row, 2);
+    row++;
+  }
   row++;
+
+  row = excelSectionHeader(ws, row, "Задачи: приоритеты (за период)");
+  ws.getCell(row, 1).value = "Приоритет";
+  ws.getCell(row, 2).value = "Кол-во";
+  ws.getRow(row).font = { bold: true };
+  stylePairRow(ws, row, 2);
+  row++;
+  for (const r of report.analytics.taskPriorities) {
+    ws.getCell(row, 1).value = priorityRu(r.priority);
+    ws.getCell(row, 2).value = r.count;
+    stylePairRow(ws, row, 2);
+    row++;
+  }
+  row++;
+
+  row = excelSectionHeader(ws, row, "Полив за период (события)");
+  ws.getCell(row, 1).value = "Выполнено";
+  ws.getCell(row, 2).value = report.analytics.wateringStatus.done;
+  stylePairRow(ws, row, 2);
+  row++;
+  ws.getCell(row, 1).value = "Запланировано (не выполнено)";
+  ws.getCell(row, 2).value = report.analytics.wateringStatus.pending;
+  stylePairRow(ws, row, 2);
+  row += 2;
+
+  row = excelSectionHeader(ws, row, "Культуры по стадиям (все теплицы)");
+  ws.getCell(row, 1).value = "Стадия";
+  ws.getCell(row, 2).value = "Кол-во";
+  ws.getRow(row).font = { bold: true };
+  stylePairRow(ws, row, 2);
+  row++;
+  for (const r of report.analytics.cultureStages) {
+    ws.getCell(row, 1).value = r.stage;
+    ws.getCell(row, 2).value = r.count;
+    stylePairRow(ws, row, 2);
+    row++;
+  }
+  row++;
+
+  row = excelSectionHeader(ws, row, "Средняя температура по теплицам (за период)");
+  ws.getCell(row, 1).value = "Теплица";
+  ws.getCell(row, 2).value = "T, °C";
+  ws.getRow(row).font = { bold: true };
+  stylePairRow(ws, row, 2);
+  row++;
+  for (const r of report.analytics.greenhouseAvgTemp) {
+    ws.getCell(row, 1).value = r.name;
+    ws.getCell(row, 2).value = Math.round(r.avg_temp * 10) / 10;
+    stylePairRow(ws, row, 2);
+    row++;
+  }
+  row++;
+
+  row = excelSectionHeader(ws, row, "Уведомления по типам (за период)");
+  ws.getCell(row, 1).value = "Тип";
+  ws.getCell(row, 2).value = "Кол-во";
+  ws.getRow(row).font = { bold: true };
+  stylePairRow(ws, row, 2);
+  row++;
+  for (const r of report.analytics.notificationsByType) {
+    ws.getCell(row, 1).value = notifTypeRu(r.type);
+    ws.getCell(row, 2).value = r.count;
+    stylePairRow(ws, row, 2);
+    row++;
+  }
+
+  // ——— Лист «Графики» ———
+  const ch = wb.addWorksheet("Графики", {
+    views: [{ state: "frozen", ySplit: 1, showGridLines: false }],
+  });
+  applyCols(ch);
+  let cr = 1;
+  ch.mergeCells(cr, 1, cr, 6);
+  ch.getCell(cr, 1).value =
+    "Диаграммы (PNG через quickchart.io). При отсутствии сети часть блоков может быть пустой.";
+  ch.getCell(cr, 1).font = { italic: true, size: 10 };
+  ch.getCell(cr, 1).alignment = { wrapText: true };
+  cr += 2;
 
   const imgExt = { width: 520, height: 270 } as const;
   const rowSpan = 17;
+  const a = report.analytics;
+
+  async function placePng(chart: Record<string, unknown>) {
+    const png = await fetchQuickChartPng(chart);
+    if (!png) {
+      ch.mergeCells(cr, 1, cr, 6);
+      ch.getCell(cr, 1).value = "— график недоступен (сеть или нет данных) —";
+      cr += 2;
+      return;
+    }
+    const id = wb.addImage({ buffer: png as never, extension: "png" });
+    ch.addImage(id, { tl: { col: 0, row: cr - 1 }, ext: imgExt });
+    cr += rowSpan;
+  }
 
   if (report.table.length) {
-    const harvestPng = await fetchQuickChartPng({
+    await placePng({
       type: "bar",
       data: {
         labels: shortChartLabels(report.table.map((x) => x.name)),
@@ -411,21 +615,18 @@ async function exportExcel(report: Awaited<ReturnType<typeof buildReport>>) {
         ],
       },
       options: {
-        plugins: { legend: { display: true } },
+        plugins: {
+          title: { display: true, text: "Урожай по теплицам", font: { size: 14 } },
+          legend: { display: true },
+        },
         scales: { y: { beginAtZero: true } },
       },
     });
-    if (harvestPng) {
-      // exceljs тип buffer конфликтует с DOM/ESM Buffer в TS 5+
-      const id = wb.addImage({ buffer: harvestPng as never, extension: "png" });
-      ws.addImage(id, { tl: { col: 0, row: row - 1 }, ext: imgExt });
-      row += rowSpan;
-    }
   }
 
   const wd = report.series.waterDaily.slice(-28);
   if (wd.length) {
-    const waterPng = await fetchQuickChartPng({
+    await placePng({
       type: "line",
       data: {
         labels: wd.map((d) => d.day.slice(5)),
@@ -440,18 +641,16 @@ async function exportExcel(report: Awaited<ReturnType<typeof buildReport>>) {
           },
         ],
       },
-      options: { scales: { y: { beginAtZero: true } } },
+      options: {
+        plugins: { title: { display: true, text: "Вода по дням", font: { size: 14 } } },
+        scales: { y: { beginAtZero: true } },
+      },
     });
-    if (waterPng) {
-      const id = wb.addImage({ buffer: waterPng as never, extension: "png" });
-      ws.addImage(id, { tl: { col: 0, row: row - 1 }, ext: imgExt });
-      row += rowSpan;
-    }
   }
 
   const td = report.series.tasksDaily.slice(-21);
   if (td.length) {
-    const tasksPng = await fetchQuickChartPng({
+    await placePng({
       type: "bar",
       data: {
         labels: td.map((d) => d.day.slice(5)),
@@ -469,16 +668,144 @@ async function exportExcel(report: Awaited<ReturnType<typeof buildReport>>) {
         ],
       },
       options: {
-        scales: {
-          y: { beginAtZero: true },
-        },
+        plugins: { title: { display: true, text: "Задачи по дням", font: { size: 14 } } },
+        scales: { y: { beginAtZero: true } },
       },
     });
-    if (tasksPng) {
-      const id = wb.addImage({ buffer: tasksPng as never, extension: "png" });
-      ws.addImage(id, { tl: { col: 0, row: row - 1 }, ext: imgExt });
-      row += rowSpan;
-    }
+  }
+
+  const sd = report.series.sensorsDaily.slice(-21);
+  if (sd.length) {
+    await placePng({
+      type: "line",
+      data: {
+        labels: sd.map((d) => d.day.slice(5)),
+        datasets: [
+          {
+            label: "Темп., °C",
+            data: sd.map((d) => (typeof d.avgTemp === "number" ? Number(d.avgTemp.toFixed(1)) : null)),
+            borderColor: "#15803d",
+            tension: 0.25,
+          },
+          {
+            label: "Влажность, %",
+            data: sd.map((d) => (typeof d.avgHum === "number" ? Number(d.avgHum.toFixed(1)) : null)),
+            borderColor: "#1d4ed8",
+            tension: 0.25,
+          },
+        ],
+      },
+      options: { plugins: { title: { display: true, text: "Климат по дням", font: { size: 14 } } } },
+    });
+  }
+
+  const done = report.kpi.tasksDone;
+  const pend = Math.max(0, report.kpi.tasksTotal - report.kpi.tasksDone);
+  await placePng({
+    type: "doughnut",
+    data: {
+      labels: ["Выполнено", "Не выполнено"],
+      datasets: [{ data: [done, pend], backgroundColor: ["#22c55e", "#334155"] }],
+    },
+    options: { plugins: { title: { display: true, text: "Задачи: доля выполнения", font: { size: 14 } } } },
+  });
+
+  await placePng({
+    type: "doughnut",
+    data: {
+      labels: ["Полив выполнен", "Ожидает"],
+      datasets: [
+        {
+          data: [a.wateringStatus.done, a.wateringStatus.pending],
+          backgroundColor: ["#22c55e", "#f59e0b"],
+        },
+      ],
+    },
+    options: { plugins: { title: { display: true, text: "Полив: статус за период", font: { size: 14 } } } },
+  });
+
+  if (a.taskPriorities.length) {
+    await placePng({
+      type: "bar",
+      data: {
+        labels: a.taskPriorities.map((x) => priorityRu(x.priority)),
+        datasets: [{ label: "Задач", data: a.taskPriorities.map((x) => x.count), backgroundColor: "#6366f1" }],
+      },
+      options: {
+        indexAxis: "y",
+        plugins: { title: { display: true, text: "Задачи по приоритетам", font: { size: 14 } } },
+        scales: { x: { beginAtZero: true } },
+      },
+    });
+  }
+
+  if (a.cultureStages.length) {
+    await placePng({
+      type: "pie",
+      data: {
+        labels: a.cultureStages.map((x) => x.stage),
+        datasets: [{ data: a.cultureStages.map((x) => x.count), backgroundColor: ["#22c55e", "#3b82f6", "#eab308", "#a855f7", "#f97316"] }],
+      },
+      options: { plugins: { title: { display: true, text: "Культуры по стадиям", font: { size: 14 } } } },
+    });
+  }
+
+  if (a.greenhouseAvgTemp.length) {
+    await placePng({
+      type: "bar",
+      data: {
+        labels: shortChartLabels(a.greenhouseAvgTemp.map((x) => x.name)),
+        datasets: [
+          {
+            label: "Средняя T, °C",
+            data: a.greenhouseAvgTemp.map((x) => Number(x.avg_temp.toFixed(1))),
+            backgroundColor: "rgba(21,128,61,0.75)",
+          },
+        ],
+      },
+      options: {
+        plugins: { title: { display: true, text: "Средняя температура по теплицам", font: { size: 14 } } },
+        scales: { y: { beginAtZero: false } },
+      },
+    });
+  }
+
+  const cd = a.co2Daily.slice(-28);
+  if (cd.length) {
+    await placePng({
+      type: "line",
+      data: {
+        labels: cd.map((d) => d.day.slice(5)),
+        datasets: [
+          {
+            label: "CO₂, ppm",
+            data: cd.map((d) => Math.round(d.avgCo2)),
+            borderColor: "#a855f7",
+            backgroundColor: "rgba(168,85,247,0.12)",
+            fill: true,
+            tension: 0.25,
+          },
+        ],
+      },
+      options: {
+        plugins: { title: { display: true, text: "CO₂ по дням", font: { size: 14 } } },
+        scales: { y: { beginAtZero: true } },
+      },
+    });
+  }
+
+  if (a.notificationsByType.length) {
+    await placePng({
+      type: "bar",
+      data: {
+        labels: a.notificationsByType.map((x) => notifTypeRu(x.type)),
+        datasets: [{ label: "Сообщений", data: a.notificationsByType.map((x) => x.count), backgroundColor: "#0ea5e9" }],
+      },
+      options: {
+        plugins: { title: { display: true, text: "Уведомления по типам", font: { size: 14 } } },
+        scales: { y: { beginAtZero: true } },
+      },
+    });
   }
 
   const buf = (await wb.xlsx.writeBuffer()) as ArrayBuffer;
@@ -549,154 +876,6 @@ function pdfSectionTitle(doc: InstanceType<typeof PDFDocument>, title: string) {
   pdfSyncX(doc);
 }
 
-function formatPdfBarValue(v: number, mode: "integer" | "oneDecimal"): string {
-  if (mode === "integer") return String(Math.round(v));
-  const r = Math.round(v * 10) / 10;
-  return Number.isInteger(r) ? String(r) : r.toFixed(1);
-}
-
-/** Столбиковая мини-диаграмма: шкала Y (min→max), числа над столбцами, подписи по X. */
-function drawMiniBars(
-  doc: InstanceType<typeof PDFDocument>,
-  values: number[],
-  color: string,
-  options?: {
-    maxBars?: number;
-    height?: number;
-    /** Подписи по оси X (те же длины, что и values; режется вместе со slice). */
-    xLabels?: string[];
-    valueFormat?: "integer" | "oneDecimal";
-  },
-) {
-  const ml = pdfMarginLeft(doc);
-  const iw = pdfInnerWidth(doc);
-  const h = options?.height ?? 118;
-  const maxBars = options?.maxBars ?? 20;
-  const slice = values.slice(-maxBars);
-  const labelSlice = options?.xLabels?.slice(-maxBars) ?? slice.map(() => "");
-  const fmtMode = options?.valueFormat ?? "oneDecimal";
-
-  if (slice.length === 0) {
-    pdfEnsureHeight(doc, 28);
-    pdfSyncX(doc);
-    doc.fontSize(9).fillColor("#94a3b8").text("Нет данных для графика.", pdfMarginLeft(doc), doc.y, {
-      width: pdfInnerWidth(doc),
-    });
-    doc.y += 22;
-    pdfSyncX(doc);
-    return;
-  }
-
-  let minV = Math.min(...slice);
-  let maxV = Math.max(...slice);
-  if (!Number.isFinite(minV)) minV = 0;
-  if (!Number.isFinite(maxV)) maxV = 1;
-  if (maxV === minV) maxV = minV + (minV === 0 ? 1 : Math.max(Math.abs(minV) * 0.05, 0.01));
-  const span = maxV - minV;
-
-  pdfEnsureHeight(doc, h + 28);
-  pdfSyncX(doc);
-  const top = doc.y;
-
-  const gutterL = 40;
-  const padR = 10;
-  const padTop = 10;
-  const padBottom = 20;
-  const leftAxis = ml + gutterL;
-  const rightX = ml + iw - padR;
-  const plotW = Math.max(20, rightX - leftAxis);
-  const topPlot = top + padTop;
-  const baseY = top + h - padBottom;
-  const innerH = Math.max(24, baseY - topPlot);
-
-  doc.save();
-  doc.rect(ml, top, iw, h).fill("#f8fafc");
-  doc.rect(ml, top, iw, h).strokeColor("#e2e8f0").lineWidth(0.6).stroke();
-
-  doc.fontSize(7).fillColor("#64748b");
-  doc.text(formatPdfBarValue(maxV, fmtMode), ml + 6, topPlot - 2, { width: gutterL - 8, align: "right" });
-  doc.text(formatPdfBarValue(minV, fmtMode), ml + 6, baseY - 9, { width: gutterL - 8, align: "right" });
-
-  doc.strokeColor("#cbd5e1").lineWidth(0.5).moveTo(leftAxis, baseY).lineTo(rightX, baseY).stroke();
-
-  const n = Math.max(1, slice.length);
-  const barW = plotW / n;
-
-  for (let i = 0; i < slice.length; i++) {
-    const v = slice[i]!;
-    const bh = Math.round(((v - minV) / span) * innerH);
-    const x = leftAxis + i * barW + 1;
-    const bw = Math.max(3, barW - 3);
-    doc.rect(x, baseY - bh, bw, bh).fill(color);
-
-    const txt = formatPdfBarValue(v, fmtMode);
-    if (bw >= 8) {
-      doc.fontSize(bw >= 14 ? 7 : 6).fillColor("#334155");
-      const tw = Math.max(bw, 18);
-      let ty = baseY - bh - (bw >= 14 ? 9 : 7);
-      ty = Math.max(topPlot + 1, ty);
-      doc.text(txt, x + (bw - tw) / 2, ty, { width: tw, align: "center", lineGap: 0 });
-    }
-
-    const lx = labelSlice[i]?.trim() ?? "";
-    const short = lx.length >= 10 ? lx.slice(5, 10) : lx.length > 5 ? lx.slice(-5) : lx;
-    if (short) {
-      doc.fontSize(6).fillColor("#94a3b8").text(short, x - 1, baseY + 3, {
-        width: bw + 2,
-        align: "center",
-      });
-    }
-  }
-
-  doc.strokeColor("#000000").lineWidth(1);
-  doc.restore();
-
-  doc.y = top + h + 16;
-  pdfSyncX(doc);
-}
-
-function drawHarvestBars(doc: InstanceType<typeof PDFDocument>, table: Array<{ harvested: number }>) {
-  if (!table.length) return;
-  const ml = pdfMarginLeft(doc);
-  const iw = pdfInnerWidth(doc);
-  const h = 112;
-  const max = Math.max(1, ...table.map((r) => r.harvested));
-
-  pdfEnsureHeight(doc, h + 28);
-  pdfSyncX(doc);
-  const top = doc.y;
-
-  doc.save();
-  doc.rect(ml, top, iw, h).fill("#f0fdf4");
-  doc.rect(ml, top, iw, h).strokeColor("#bbf7d0").lineWidth(0.6).stroke();
-
-  const pad = 12;
-  const padBottom = 18;
-  const innerW = iw - pad * 2;
-  const plotH = h - pad - padBottom - 14;
-  const barW = innerW / Math.max(1, table.length);
-  const baseY = top + h - padBottom;
-
-  doc.fontSize(7).fillColor("#64748b").text(String(max), ml + pad, top + 8, { width: 28, align: "left" });
-  doc.strokeColor("#bbf7d0").lineWidth(0.5).moveTo(ml + pad, baseY).lineTo(ml + iw - pad, baseY).stroke();
-
-  for (let i = 0; i < table.length; i++) {
-    const v = table[i]!.harvested;
-    const bh = Math.round((v / max) * plotH);
-    const x = ml + pad + i * barW + 2;
-    const bw = Math.max(4, barW - 5);
-    doc.rect(x, baseY - bh, bw, bh).fill("#22c55e");
-    doc.fontSize(8).fillColor("#14532d").text(String(v), x, baseY - bh - 10, { width: bw, align: "center" });
-    doc.fontSize(6).fillColor("#64748b").text(`№${i + 1}`, x, baseY + 3, { width: bw, align: "center" });
-  }
-
-  doc.strokeColor("#000000").lineWidth(1);
-  doc.restore();
-
-  doc.y = top + h + 14;
-  pdfSyncX(doc);
-}
-
 function drawGreenhouseTable(
   doc: InstanceType<typeof PDFDocument>,
   rows: Array<{ name: string; harvested: number }>,
@@ -743,7 +922,37 @@ function drawGreenhouseTable(
   pdfSyncX(doc);
 }
 
-async function exportPdf(report: Awaited<ReturnType<typeof buildReport>>) {
+const PDF_QC_SIZE = { w: 720, h: 380 } as const;
+
+async function pdfQuickChart(
+  doc: InstanceType<typeof PDFDocument>,
+  sectionTitle: string,
+  chart: Record<string, unknown>,
+) {
+  pdfSectionTitle(doc, sectionTitle);
+  const png = await fetchQuickChartPng(chart, PDF_QC_SIZE);
+  const ml = pdfMarginLeft(doc);
+  const iw = pdfInnerWidth(doc);
+  const imgH = Math.round(Math.min(PDF_QC_SIZE.h * (iw / PDF_QC_SIZE.w), iw * 0.52));
+  if (!png) {
+    pdfSyncX(doc);
+    doc
+      .fontSize(10)
+      .fillColor("#64748b")
+      .text("Диаграмма недоступна (интернет quickchart.io или нет данных для построения).", ml, doc.y, {
+        width: iw,
+      });
+    doc.moveDown(2);
+    pdfSyncX(doc);
+    return;
+  }
+  pdfEnsureHeight(doc, imgH + 30);
+  doc.image(png, ml, doc.y, { width: iw, height: imgH });
+  doc.y += imgH + 22;
+  pdfSyncX(doc);
+}
+
+async function exportPdf(report: FullReport) {
   const doc = new PDFDocument({ size: "A4", margin: 52 });
   const chunks: Buffer[] = [];
   doc.on("data", (c) => chunks.push(c as Buffer));
@@ -754,24 +963,41 @@ async function exportPdf(report: Awaited<ReturnType<typeof buildReport>>) {
     doc.font("FG");
   }
 
+  const ml0 = pdfMarginLeft(doc);
+  const iw0 = pdfInnerWidth(doc);
+
   pdfSyncX(doc);
-  doc.fontSize(20).fillColor("#0f172a").text("Future Greenhouse", pdfMarginLeft(doc), doc.y, {
-    width: pdfInnerWidth(doc),
-  });
+  doc.fontSize(20).fillColor("#0f172a").text("Future Greenhouse", ml0, doc.y, { width: iw0 });
   doc.moveDown(0.25);
-  doc.fontSize(12).fillColor("#64748b").text("Аналитический отчёт", pdfMarginLeft(doc), doc.y, {
-    width: pdfInnerWidth(doc),
-  });
+  doc.fontSize(12).fillColor("#64748b").text("Аналитический отчёт", ml0, doc.y, { width: iw0 });
   doc.moveDown(0.35);
-  doc.fontSize(11).fillColor("#334155").text(`Период: ${report.periodTitle}`, pdfMarginLeft(doc), doc.y, {
-    width: pdfInnerWidth(doc),
-  });
+  doc.fontSize(11).fillColor("#334155").text(`Период: ${report.periodTitle}`, ml0, doc.y, { width: iw0 });
   doc.moveDown(1);
 
+  pdfSectionTitle(doc, "Содержание (разделы как вкладки)");
+  doc.fontSize(10).fillColor("#334155");
+  const toc = [
+    "1. Сводные показатели (KPI)",
+    "2. Урожай по теплицам — таблица и диаграмма",
+    "3. Операционные тренды — вода, задачи, климат",
+    "4. Расширенная аналитика — задачи, полив, культуры, климат, CO₂, уведомления",
+  ];
+  for (const line of toc) {
+    pdfSyncX(doc);
+    doc.text(`• ${line}`, ml0, doc.y, { width: iw0 });
+    doc.moveDown(0.35);
+  }
+  doc.fontSize(9).fillColor("#64748b").text("Диаграммы строятся через quickchart.io (кириллица в подписях). Нужен доступ в интернет при генерации PDF.", ml0, doc.y, {
+    width: iw0,
+  });
+  doc.moveDown(1.2);
+
+  doc.addPage();
+  pdfSectionTitle(doc, "Вкладка 1 — Сводные показатели (KPI)");
   pdfEnsureHeight(doc, 88);
   pdfSyncX(doc);
   const kpiTop = doc.y;
-  const kpiH = 76;
+  const kpiH = 88;
   const ml = pdfMarginLeft(doc);
   const iw = pdfInnerWidth(doc);
   doc.save();
@@ -781,10 +1007,19 @@ async function exportPdf(report: Awaited<ReturnType<typeof buildReport>>) {
   let ky = kpiTop + 14;
   doc.text(`Урожай (партий): ${report.kpi.harvested}`, ml + 18, ky, { width: iw - 36 });
   ky += 18;
-  doc.fillColor("#334155").text(`Расход воды (л): ${report.kpi.waterLiters}`, ml + 18, ky, { width: iw - 36 });
+  doc.fillColor("#334155").text(`Расход воды (л): ${Math.round(report.kpi.waterLiters * 100) / 100}`, ml + 18, ky, {
+    width: iw - 36,
+  });
   ky += 18;
   doc.text(
     `Задачи: ${report.kpi.tasksDone} / ${report.kpi.tasksTotal} выполнено (${report.kpi.tasksCompletionPct}%)`,
+    ml + 18,
+    ky,
+    { width: iw - 36 },
+  );
+  ky += 18;
+  doc.text(
+    `Полив за период: выполнено ${report.analytics.wateringStatus.done}, ожидает ${report.analytics.wateringStatus.pending}`,
     ml + 18,
     ky,
     { width: iw - 36 },
@@ -793,65 +1028,210 @@ async function exportPdf(report: Awaited<ReturnType<typeof buildReport>>) {
   doc.y = kpiTop + kpiH + 20;
   pdfSyncX(doc);
 
-  pdfSectionTitle(doc, "Урожай по теплицам");
-  drawHarvestBars(doc, report.table);
+  doc.addPage();
+  pdfSectionTitle(doc, "Вкладка 2 — Урожай по теплицам");
   drawGreenhouseTable(doc, report.table);
-
-  pdfSectionTitle(doc, "Тренды по дням");
-
-  if (report.series.waterDaily.length) {
-    pdfEnsureHeight(doc, 130);
-    pdfSyncX(doc);
-    doc.fontSize(11).fillColor("#334155").text("Расход воды (л)", pdfMarginLeft(doc), doc.y, {
-      width: pdfInnerWidth(doc),
-    });
-    doc.moveDown(0.45);
-    drawMiniBars(doc, report.series.waterDaily.map((x) => x.liters), "#2563eb", {
-      xLabels: report.series.waterDaily.map((x) => x.day),
-      valueFormat: "oneDecimal",
-    });
-  }
-
-  if (report.series.tasksDaily.length) {
-    pdfEnsureHeight(doc, 130);
-    pdfSyncX(doc);
-    doc.fontSize(11).fillColor("#334155").text("Задачи: выполнено", pdfMarginLeft(doc), doc.y, {
-      width: pdfInnerWidth(doc),
-    });
-    doc.moveDown(0.45);
-    drawMiniBars(doc, report.series.tasksDaily.map((x) => x.done), "#16a34a", {
-      xLabels: report.series.tasksDaily.map((x) => x.day),
-      valueFormat: "integer",
+  if (report.table.length) {
+    await pdfQuickChart(doc, "Диаграмма: урожай по теплицам", {
+      type: "bar",
+      data: {
+        labels: shortChartLabels(report.table.map((x) => x.name)),
+        datasets: [
+          {
+            label: "Урожай (партий)",
+            data: report.table.map((x) => x.harvested),
+            backgroundColor: "rgba(34,197,94,0.65)",
+          },
+        ],
+      },
+      options: {
+        plugins: {
+          title: { display: true, text: "Урожай по теплицам", font: { size: 16 } },
+          legend: { display: true },
+        },
+        scales: { y: { beginAtZero: true } },
+      },
     });
   }
 
-  if (report.series.sensorsDaily.length) {
-    const sliceRows = report.series.sensorsDaily.slice(-14);
-    const temps = sliceRows.map((x) => (typeof x.avgTemp === "number" ? x.avgTemp : 0));
-    const hums = sliceRows.map((x) => (typeof x.avgHum === "number" ? x.avgHum : 0));
-    if (sliceRows.some((x) => x.avgTemp != null || x.avgHum != null)) {
-      pdfEnsureHeight(doc, 130);
-      pdfSyncX(doc);
-      doc.fontSize(11).fillColor("#334155").text("Средняя температура (°C)", pdfMarginLeft(doc), doc.y, {
-        width: pdfInnerWidth(doc),
-      });
-      doc.moveDown(0.45);
-      drawMiniBars(doc, temps, "#15803d", {
-        xLabels: sliceRows.map((x) => x.day),
-        valueFormat: "oneDecimal",
-      });
+  doc.addPage();
+  pdfSectionTitle(doc, "Вкладка 3 — Операционные тренды по дням");
+  const wd = report.series.waterDaily.slice(-28);
+  if (wd.length) {
+    await pdfQuickChart(doc, "Расход воды (л)", {
+      type: "line",
+      data: {
+        labels: wd.map((d) => d.day.slice(5)),
+        datasets: [
+          {
+            label: "Литры",
+            data: wd.map((d) => d.liters),
+            borderColor: "#2563eb",
+            backgroundColor: "rgba(37,99,235,0.15)",
+            fill: true,
+            tension: 0.25,
+          },
+        ],
+      },
+      options: {
+        plugins: { title: { display: true, text: "Вода по дням", font: { size: 15 } } },
+        scales: { y: { beginAtZero: true } },
+      },
+    });
+  }
+  const td = report.series.tasksDaily.slice(-21);
+  if (td.length) {
+    await pdfQuickChart(doc, "Задачи по дням", {
+      type: "bar",
+      data: {
+        labels: td.map((d) => d.day.slice(5)),
+        datasets: [
+          { label: "Всего", data: td.map((d) => d.total), backgroundColor: "rgba(148,163,184,0.55)" },
+          { label: "Выполнено", data: td.map((d) => d.done), backgroundColor: "rgba(34,197,94,0.65)" },
+        ],
+      },
+      options: {
+        plugins: { title: { display: true, text: "Задачи: всего и выполнено", font: { size: 15 } } },
+        scales: { y: { beginAtZero: true } },
+      },
+    });
+  }
+  const sd = report.series.sensorsDaily.slice(-21);
+  if (sd.length) {
+    await pdfQuickChart(doc, "Климат по дням", {
+      type: "line",
+      data: {
+        labels: sd.map((d) => d.day.slice(5)),
+        datasets: [
+          {
+            label: "Температура, °C",
+            data: sd.map((d) => (typeof d.avgTemp === "number" ? Number(d.avgTemp.toFixed(1)) : null)),
+            borderColor: "#15803d",
+            tension: 0.25,
+          },
+          {
+            label: "Влажность, %",
+            data: sd.map((d) => (typeof d.avgHum === "number" ? Number(d.avgHum.toFixed(1)) : null)),
+            borderColor: "#1d4ed8",
+            tension: 0.25,
+          },
+        ],
+      },
+      options: { plugins: { title: { display: true, text: "Среднесуточные показатели", font: { size: 15 } } } },
+    });
+  }
 
-      pdfEnsureHeight(doc, 130);
-      pdfSyncX(doc);
-      doc.fontSize(11).fillColor("#334155").text("Средняя влажность (%)", pdfMarginLeft(doc), doc.y, {
-        width: pdfInnerWidth(doc),
-      });
-      doc.moveDown(0.45);
-      drawMiniBars(doc, hums, "#1d4ed8", {
-        xLabels: sliceRows.map((x) => x.day),
-        valueFormat: "oneDecimal",
-      });
-    }
+  doc.addPage();
+  pdfSectionTitle(doc, "Вкладка 4 — Расширенная аналитика");
+  const a = report.analytics;
+  const done = report.kpi.tasksDone;
+  const pend = Math.max(0, report.kpi.tasksTotal - report.kpi.tasksDone);
+
+  await pdfQuickChart(doc, "Задачи: доля выполнения", {
+    type: "doughnut",
+    data: {
+      labels: ["Выполнено", "Не выполнено"],
+      datasets: [{ data: [done, pend], backgroundColor: ["#22c55e", "#334155"] }],
+    },
+    options: { plugins: { title: { display: true, text: "Статус задач за период", font: { size: 15 } } } },
+  });
+
+  await pdfQuickChart(doc, "Полив: выполнено и ожидает", {
+    type: "doughnut",
+    data: {
+      labels: ["Выполнено", "Ожидает"],
+      datasets: [{ data: [a.wateringStatus.done, a.wateringStatus.pending], backgroundColor: ["#22c55e", "#f59e0b"] }],
+    },
+    options: { plugins: { title: { display: true, text: "Полив за период", font: { size: 15 } } } },
+  });
+
+  if (a.taskPriorities.length) {
+    await pdfQuickChart(doc, "Приоритеты задач", {
+      type: "bar",
+      data: {
+        labels: a.taskPriorities.map((x) => priorityRu(x.priority)),
+        datasets: [{ label: "Количество", data: a.taskPriorities.map((x) => x.count), backgroundColor: "#6366f1" }],
+      },
+      options: {
+        indexAxis: "y",
+        plugins: { title: { display: true, text: "Распределение по приоритету", font: { size: 15 } } },
+        scales: { x: { beginAtZero: true } },
+      },
+    });
+  }
+
+  if (a.cultureStages.length) {
+    await pdfQuickChart(doc, "Культуры по стадиям", {
+      type: "pie",
+      data: {
+        labels: a.cultureStages.map((x) => x.stage),
+        datasets: [
+          {
+            data: a.cultureStages.map((x) => x.count),
+            backgroundColor: ["#22c55e", "#3b82f6", "#eab308", "#a855f7", "#f97316"],
+          },
+        ],
+      },
+      options: { plugins: { title: { display: true, text: "Портфель культур", font: { size: 15 } } } },
+    });
+  }
+
+  if (a.greenhouseAvgTemp.length) {
+    await pdfQuickChart(doc, "Средняя температура по теплицам", {
+      type: "bar",
+      data: {
+        labels: shortChartLabels(a.greenhouseAvgTemp.map((x) => x.name)),
+        datasets: [
+          {
+            label: "°C",
+            data: a.greenhouseAvgTemp.map((x) => Number(x.avg_temp.toFixed(1))),
+            backgroundColor: "rgba(21,128,61,0.75)",
+          },
+        ],
+      },
+      options: {
+        plugins: { title: { display: true, text: "За выбранный период", font: { size: 15 } } },
+        scales: { y: { beginAtZero: false } },
+      },
+    });
+  }
+
+  const cd = a.co2Daily.slice(-28);
+  if (cd.length) {
+    await pdfQuickChart(doc, "CO₂ по дням", {
+      type: "line",
+      data: {
+        labels: cd.map((d) => d.day.slice(5)),
+        datasets: [
+          {
+            label: "ppm",
+            data: cd.map((d) => Math.round(d.avgCo2)),
+            borderColor: "#a855f7",
+            backgroundColor: "rgba(168,85,247,0.12)",
+            fill: true,
+            tension: 0.25,
+          },
+        ],
+      },
+      options: {
+        plugins: { title: { display: true, text: "Среднесуточный CO₂", font: { size: 15 } } },
+        scales: { y: { beginAtZero: true } },
+      },
+    });
+  }
+
+  if (a.notificationsByType.length) {
+    await pdfQuickChart(doc, "Уведомления по типам", {
+      type: "bar",
+      data: {
+        labels: a.notificationsByType.map((x) => notifTypeRu(x.type)),
+        datasets: [{ label: "Кол-во", data: a.notificationsByType.map((x) => x.count), backgroundColor: "#0ea5e9" }],
+      },
+      options: {
+        plugins: { title: { display: true, text: "За период отчёта", font: { size: 15 } } },
+        scales: { y: { beginAtZero: true } },
+      },
+    });
   }
 
   doc.end();
@@ -881,12 +1261,19 @@ export async function GET(req: Request) {
 
   const report = await buildReport(period);
   const { iv } = intervalFor(period);
-  report.series.waterDaily = await loadWaterDaily(iv);
-  report.series.tasksDaily = await loadTasksDaily(iv);
-  report.series.sensorsDaily = await loadSensorsDaily(iv);
+  const [waterDaily, tasksDaily, sensorsDaily, analytics] = await Promise.all([
+    loadWaterDaily(iv),
+    loadTasksDaily(iv),
+    loadSensorsDaily(iv),
+    loadReportAnalytics(iv),
+  ]);
+  report.series.waterDaily = waterDaily;
+  report.series.tasksDaily = tasksDaily;
+  report.series.sensorsDaily = sensorsDaily;
+  const fullReport: FullReport = { ...report, analytics };
 
   if (format === "excel") {
-    const buffer = await exportExcel(report);
+    const buffer = await exportExcel(fullReport);
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
@@ -897,7 +1284,7 @@ export async function GET(req: Request) {
   }
 
   if (format === "pdf") {
-    const buffer = await exportPdf(report);
+    const buffer = await exportPdf(fullReport);
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
@@ -907,5 +1294,5 @@ export async function GET(req: Request) {
     });
   }
 
-  return NextResponse.json({ ok: true, report });
+  return NextResponse.json({ ok: true, report: fullReport });
 }

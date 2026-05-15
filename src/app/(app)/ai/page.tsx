@@ -4,12 +4,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/I18nContext";
 import type { I18nKey } from "@/lib/i18n";
 import ForecastChart from "@/components/ai/ForecastChart";
+import GreenhouseMap from "@/components/ai/GreenhouseMap";
 import HealthRing from "@/components/ai/HealthRing";
+import PlantVisionPanel from "@/components/ai/PlantVisionPanel";
+import WeekPlanner from "@/components/ai/WeekPlanner";
 import type { GreenhouseForecast } from "@/lib/ai/forecast";
 import type { GreenhouseHealth } from "@/lib/ai/health";
 import type { AiRecommendation } from "@/lib/ai/recommendations";
 
-type AiTab = "chat" | "forecast" | "health" | "recommendations";
+type AiTab = "chat" | "forecast" | "health" | "recommendations" | "map" | "vision" | "planner";
 
 type ChatRow = {
   id: number;
@@ -99,11 +102,21 @@ export default function AiPage() {
   }
 
   async function loadGreenhouses() {
-    const res = await fetch("/api/greenhouses", { cache: "no-store" });
-    const data = (await res.json().catch(() => null)) as null | { ok: true; greenhouses: Array<{ id: number; name: string }> };
-    if (data?.ok) {
-      setGreenhouses(data.greenhouses.map((g) => ({ id: g.id, name: g.name })));
-      if (!forecastGh && data.greenhouses[0]) setForecastGh(data.greenhouses[0].id);
+    try {
+      const res = await fetch("/api/greenhouses", { cache: "no-store" });
+      const data = (await res.json().catch(() => null)) as null | {
+        ok: boolean;
+        greenhouses?: Array<{ id: number; name: string }>;
+        error?: string;
+      };
+      if (data?.ok && data.greenhouses) {
+        setGreenhouses(data.greenhouses.map((g) => ({ id: g.id, name: g.name })));
+        if (!forecastGh && data.greenhouses[0]) setForecastGh(data.greenhouses[0].id);
+      } else if (!res.ok) {
+        setError(data?.error || `${tr("error.network")} (${res.status})`);
+      }
+    } catch {
+      setError(tr("error.network"));
     }
   }
 
@@ -111,8 +124,15 @@ export default function AiPage() {
     setHealthLoading(true);
     try {
       const res = await fetch("/api/ai/health", { cache: "no-store" });
-      const data = (await res.json().catch(() => null)) as null | { ok: boolean; health: GreenhouseHealth[] };
-      if (data?.ok) setHealth(data.health);
+      const data = (await res.json().catch(() => null)) as null | {
+        ok: boolean;
+        health?: GreenhouseHealth[];
+        error?: string;
+      };
+      if (data?.ok && data.health) setHealth(data.health);
+      else if (!res.ok) setError(data?.error || `${tr("error.network")} (${res.status})`);
+    } catch {
+      setError(tr("error.network"));
     } finally {
       setHealthLoading(false);
     }
@@ -122,8 +142,15 @@ export default function AiPage() {
     setRecLoading(true);
     try {
       const res = await fetch("/api/ai/recommendations", { cache: "no-store" });
-      const data = (await res.json().catch(() => null)) as null | { ok: boolean; recommendations: AiRecommendation[] };
-      if (data?.ok) setRecommendations(data.recommendations);
+      const data = (await res.json().catch(() => null)) as null | {
+        ok: boolean;
+        recommendations?: AiRecommendation[];
+        error?: string;
+      };
+      if (data?.ok && data.recommendations) setRecommendations(data.recommendations);
+      else if (!res.ok) setError(data?.error || `${tr("error.network")} (${res.status})`);
+    } catch {
+      setError(tr("error.network"));
     } finally {
       setRecLoading(false);
     }
@@ -214,6 +241,9 @@ export default function AiPage() {
           {tabBtn("forecast", "ai.tab.forecast")}
           {tabBtn("health", "ai.tab.health")}
           {tabBtn("recommendations", "ai.tab.recommendations")}
+          {tabBtn("map", "ai.tab.map")}
+          {tabBtn("vision", "ai.tab.vision")}
+          {tabBtn("planner", "ai.tab.planner")}
         </div>
       </div>
 
@@ -393,6 +423,24 @@ export default function AiPage() {
               ))}
             </div>
           )}
+        </section>
+      ) : null}
+
+      {tab === "map" ? (
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 sm:p-6">
+          <GreenhouseMap />
+        </section>
+      ) : null}
+
+      {tab === "vision" ? (
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 sm:p-6">
+          <PlantVisionPanel />
+        </section>
+      ) : null}
+
+      {tab === "planner" ? (
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 sm:p-6">
+          <WeekPlanner />
         </section>
       ) : null}
     </main>

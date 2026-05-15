@@ -360,6 +360,39 @@ export type I18nKey =
   | "ai.tab.forecast"
   | "ai.tab.health"
   | "ai.tab.recommendations"
+  | "ai.tab.map"
+  | "ai.tab.vision"
+  | "ai.tab.planner"
+  | "ai.map.title"
+  | "ai.map.subtitle"
+  | "ai.map.refresh"
+  | "ai.map.legend.ok"
+  | "ai.map.legend.warn"
+  | "ai.map.legend.alert"
+  | "ai.map.summaryLoading"
+  | "ai.map.summaryFailed"
+  | "ai.map.noGreenhouses"
+  | "ai.vision.title"
+  | "ai.vision.subtitle"
+  | "ai.vision.dropHint"
+  | "ai.vision.pick"
+  | "ai.vision.analyze"
+  | "ai.vision.analyzing"
+  | "ai.vision.limit"
+  | "ai.vision.diagnosis"
+  | "ai.vision.confidence"
+  | "ai.vision.issues"
+  | "ai.vision.actions"
+  | "ai.vision.prevention"
+  | "ai.vision.failed"
+  | "ai.planner.title"
+  | "ai.planner.subtitle"
+  | "ai.planner.generate"
+  | "ai.planner.generating"
+  | "ai.planner.accept"
+  | "ai.planner.saved"
+  | "ai.planner.empty"
+  | "ai.planner.failed"
   | "ai.forecast.title"
   | "ai.forecast.subtitle"
   | "ai.forecast.run"
@@ -805,6 +838,39 @@ const RU: Record<I18nKey, string> = {
   "ai.tab.forecast": "Прогноз",
   "ai.tab.health": "Здоровье",
   "ai.tab.recommendations": "Советы",
+  "ai.tab.map": "Карта",
+  "ai.tab.vision": "Фото",
+  "ai.tab.planner": "План",
+  "ai.map.title": "Интерактивная карта теплиц",
+  "ai.map.subtitle": "Тепловая карта хозяйства: зелёный — норма, красный — проблемы. Нажмите на блок для AI-сводки.",
+  "ai.map.refresh": "Обновить",
+  "ai.map.legend.ok": "Норма",
+  "ai.map.legend.warn": "Внимание",
+  "ai.map.legend.alert": "Тревога",
+  "ai.map.summaryLoading": "Формируем AI-сводку…",
+  "ai.map.summaryFailed": "Не удалось получить сводку",
+  "ai.map.noGreenhouses": "В базе нет теплиц. Выполните npm run db:seed или добавьте теплицы вручную.",
+  "ai.vision.title": "Анализ фото растений",
+  "ai.vision.subtitle": "Загрузите снимок с телефона — GPT-4o Vision определит болезнь или дефицит и подскажет действия.",
+  "ai.vision.dropHint": "Сфотографируйте растение или выберите файл",
+  "ai.vision.pick": "Выбрать фото",
+  "ai.vision.analyze": "Анализировать",
+  "ai.vision.analyzing": "Анализ…",
+  "ai.vision.limit": "JPEG, PNG или WebP, до 5 МБ",
+  "ai.vision.diagnosis": "Диагноз",
+  "ai.vision.confidence": "Уверенность",
+  "ai.vision.issues": "Наблюдения",
+  "ai.vision.actions": "Что делать",
+  "ai.vision.prevention": "Профилактика",
+  "ai.vision.failed": "Не удалось проанализировать фото",
+  "ai.planner.title": "AI-планировщик недели",
+  "ai.planner.subtitle": "План на 7 дней по теплицам, задачам и поливу. Можно отредактировать и принять.",
+  "ai.planner.generate": "Составить план",
+  "ai.planner.generating": "Составляем…",
+  "ai.planner.accept": "Принять план",
+  "ai.planner.saved": "План сохранён в системе",
+  "ai.planner.empty": "Нажмите «Составить план», чтобы сгенерировать расписание.",
+  "ai.planner.failed": "Не удалось составить план",
   "ai.forecast.title": "AI-аналитика и прогноз",
   "ai.forecast.subtitle": "История 7 дней и прогноз на 3 дня с зонами риска (зелёная / жёлтая / красная).",
   "ai.forecast.run": "Построить прогноз",
@@ -1252,6 +1318,39 @@ const KK: Record<I18nKey, string> = {
   "ai.tab.forecast": "Болжам",
   "ai.tab.health": "Денсаулық",
   "ai.tab.recommendations": "Кеңестер",
+  "ai.tab.map": "Карта",
+  "ai.tab.vision": "Фото",
+  "ai.tab.planner": "Жоспар",
+  "ai.map.title": "Жылыжайлардың интерактивті картасы",
+  "ai.map.subtitle": "Жылу картасы: жасыл — норма, қызыл — мәселе. AI-қорытынды үшін басыңыз.",
+  "ai.map.refresh": "Жаңарту",
+  "ai.map.legend.ok": "Норма",
+  "ai.map.legend.warn": "Назар",
+  "ai.map.legend.alert": "Дабыл",
+  "ai.map.summaryLoading": "AI-қорытынды дайындалуда…",
+  "ai.map.summaryFailed": "Қорытынды алынбады",
+  "ai.map.noGreenhouses": "Базада жылыжай жоқ. npm run db:seed орындаңыз немесе қолмен қосыңыз.",
+  "ai.vision.title": "Өсімдік фотосын талдау",
+  "ai.vision.subtitle": "Телефоннан сурет жүктеңіз — GPT-4o Vision ауру немесе тапшылықты анықтайды.",
+  "ai.vision.dropHint": "Өсімдікті суретке түсіріңіз немесе файл таңдаңыз",
+  "ai.vision.pick": "Фото таңдау",
+  "ai.vision.analyze": "Талдау",
+  "ai.vision.analyzing": "Талдау…",
+  "ai.vision.limit": "JPEG, PNG немесе WebP, 5 МБ-қа дейін",
+  "ai.vision.diagnosis": "Диагноз",
+  "ai.vision.confidence": "Сенімділік",
+  "ai.vision.issues": "Бақылау",
+  "ai.vision.actions": "Не істеу керек",
+  "ai.vision.prevention": "Алдын алу",
+  "ai.vision.failed": "Фото талданбады",
+  "ai.planner.title": "AI апта жоспарлаушысы",
+  "ai.planner.subtitle": "7 күндік жоспар: жылыжайлар, тапсырмалар, суару. Өңдеуге және қабылдауға болады.",
+  "ai.planner.generate": "Жоспар құру",
+  "ai.planner.generating": "Құрылады…",
+  "ai.planner.accept": "Жоспарды қабылдау",
+  "ai.planner.saved": "Жоспар сақталды",
+  "ai.planner.empty": "«Жоспар құру» батырмасын басыңыз.",
+  "ai.planner.failed": "Жоспар құрылмады",
   "ai.forecast.title": "AI-талдау және болжам",
   "ai.forecast.subtitle": "7 күн тарихы және 3 күнге болжам (жасыл / сары / қызыл аймақтар).",
   "ai.forecast.run": "Болжам құру",

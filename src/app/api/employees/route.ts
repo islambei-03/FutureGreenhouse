@@ -4,10 +4,11 @@ import { db } from "@/lib/db";
 import { requireApiRoles } from "@/lib/api/rbac";
 import { auditLog } from "@/lib/audit";
 import { apiT } from "@/lib/api/i18n";
+import { WORKER_POSITION } from "@/lib/constants";
 
 const CreateSchema = z.object({
   full_name: z.string().min(3, "Введите ФИО"),
-  position: z.string().min(2, "Введите должность"),
+  position: z.literal(WORKER_POSITION).optional(),
   greenhouse_id: z.number().int().nullable().optional(),
   phone: z.string().optional().nullable(),
   status: z.enum(["на смене", "перерыв", "больничный", "выходной"]).optional(),
@@ -33,10 +34,11 @@ export async function GET() {
         ) as task_count
       FROM employees e
       LEFT JOIN greenhouses g ON g.id = e.greenhouse_id
+      WHERE e.position = @position
       ORDER BY e.full_name ASC
     `,
     )
-    .all()) as unknown[];
+    .all({ position: WORKER_POSITION })) as unknown[];
 
   return NextResponse.json({ ok: true, employees: rows });
 }
@@ -63,6 +65,7 @@ export async function POST(req: Request) {
     )
     .run({
       ...parsed.data,
+      position: WORKER_POSITION,
       greenhouse_id: parsed.data.greenhouse_id ?? null,
       phone: parsed.data.phone ?? null,
       status: parsed.data.status ?? "на смене",
@@ -108,6 +111,7 @@ export async function PUT(req: Request) {
     )
     .run({
       ...parsed.data,
+      position: WORKER_POSITION,
       greenhouse_id: parsed.data.greenhouse_id ?? null,
       phone: parsed.data.phone ?? null,
       status: parsed.data.status ?? "на смене",

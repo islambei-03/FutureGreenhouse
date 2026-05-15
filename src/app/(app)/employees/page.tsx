@@ -8,6 +8,7 @@ import RippleButton from "@/components/ui/RippleButton";
 import AppModal from "@/components/ui/AppModal";
 import TableScroll from "@/components/ui/TableScroll";
 import { useI18n } from "@/components/i18n/I18nContext";
+import { WORKER_POSITION } from "@/lib/constants";
 
 type EmployeeStatus = "на смене" | "перерыв" | "больничный" | "выходной";
 
@@ -59,7 +60,7 @@ export default function EmployeesPage() {
     () =>
       z.object({
         full_name: z.string().min(3, tr("val.enterFullName")),
-        position: z.string().min(2, tr("val.enterPosition")),
+        position: z.literal(WORKER_POSITION),
         greenhouse_id: z.number().int().nullable(),
         phone: z.string().optional().nullable(),
         status: z.enum(["на смене", "перерыв", "больничный", "выходной"]),
@@ -79,7 +80,7 @@ export default function EmployeesPage() {
   const [editing, setEditing] = useState<EmployeeRow | null>(null);
   const [form, setForm] = useState({
     full_name: "",
-    position: "",
+    position: WORKER_POSITION,
     greenhouse_id: "" as "" | number,
     phone: "",
     status: "на смене" as EmployeeStatus,
@@ -128,7 +129,7 @@ export default function EmployeesPage() {
     setError(null);
     setForm({
       full_name: "",
-      position: "",
+      position: WORKER_POSITION,
       greenhouse_id: "",
       phone: "",
       status: "на смене",
@@ -142,7 +143,7 @@ export default function EmployeesPage() {
     setError(null);
     setForm({
       full_name: e.full_name,
-      position: e.position,
+      position: WORKER_POSITION,
       greenhouse_id: e.greenhouse_id ?? "",
       phone: e.phone ?? "",
       status: e.status,
@@ -340,10 +341,9 @@ export default function EmployeesPage() {
           <div className="space-y-2">
             <label className="text-sm text-[var(--muted)]">{tr("employees.field.position")}</label>
             <input
-              value={form.position}
-              onChange={(e) => setForm((v) => ({ ...v, position: e.target.value }))}
-              className="w-full rounded-xl bg-black/20 border border-[var(--border)] px-4 py-3 outline-none focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent)]/20 transition"
-              disabled={!canCrud(role)}
+              value={WORKER_POSITION}
+              readOnly
+              className="w-full rounded-xl bg-black/20 border border-[var(--border)] px-4 py-3 text-[var(--muted)]"
             />
           </div>
 

@@ -112,6 +112,7 @@ export async function initSchema(pool: Pool) {
       message TEXT NOT NULL,
       type TEXT NOT NULL DEFAULT 'информация' CHECK (type IN ('тревога','предупреждение','информация','успех')),
       is_read INTEGER NOT NULL DEFAULT 0,
+      target_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
 

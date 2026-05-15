@@ -145,12 +145,22 @@ export default function WateringPage() {
   }, [week, weekDays]);
 
   async function markDone(id: number, done: boolean) {
-    await fetch("/api/watering", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id, is_done: done ? 1 : 0 }),
-    }).catch(() => null);
-    await loadAll();
+    setError(null);
+    try {
+      const res = await fetch("/api/watering", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id, is_done: done ? 1 : 0 }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        setError(data.error || tr("error.saveFailed"));
+        return;
+      }
+      await loadAll();
+    } catch {
+      setError(tr("error.network"));
+    }
   }
 
   async function remove(id: number) {

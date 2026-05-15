@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/I18nContext";
 import type { PlannerEvent, WeekPlan } from "@/lib/ai/planner";
+import AiTabInfo from "@/components/ai/AiTabInfo";
 
 const TYPE_COLORS: Record<PlannerEvent["type"], string> = {
   полив: "border-blue-400/40 bg-blue-500/15",

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { requireApiRoles } from "@/lib/api/rbac";
 import { auditLog } from "@/lib/audit";
 import { apiT } from "@/lib/api/i18n";
+import { notifyEmployeeTask } from "@/lib/notifications";
 
 async function getEmployeeIdForUser(userId: string): Promise<number | null> {
   const row = (await db()
@@ -109,6 +110,14 @@ export async function POST(req: Request) {
     details: `Создана задача: ${parsed.data.title}`,
   });
 
+  if (parsed.data.assigned_to) {
+    await notifyEmployeeTask(
+      parsed.data.assigned_to,
+      "Новая задача",
+      `Вам назначена задача: «${parsed.data.title}»`,
+    );
+  }
+
   return NextResponse.json({ ok: true, id: Number(r.lastInsertRowid) });
 }
 
@@ -159,7 +168,22 @@ export async function PUT(req: Request) {
 
   if (fields.length === 0) return NextResponse.json({ ok: true });
 
+  const prev =
+    "assigned_to" in parsed.data
+      ? ((await db().prepare("SELECT assigned_to, title FROM tasks WHERE id = ?").get(parsed.data.id)) as
+          | { assigned_to: number | null; title: string }
+          | undefined)
+      : undefined;
+
   await db().prepare(`UPDATE tasks SET ${fields.join(", ")} WHERE id=@id`).run(params);
+
+  if (prev && "assigned_to" in parsed.data && parsed.data.assigned_to && parsed.data.assigned_to !== prev.assigned_to) {
+    await notifyEmployeeTask(
+      parsed.data.assigned_to,
+      "Новая задача",
+      `Вам назначена задача: «${prev.title}»`,
+    );
+  }
   await auditLog({
     actorUserId: Number(auth.user.id),
     action: "update",

@@ -145,24 +145,36 @@ export async function backfillRichDemoData(pool: Pool) {
   }
 }
 
+async function ensureWorkerUsers(pool: Pool, a: DbAdapter) {
+  const workers = (await a
+    .prepare("SELECT id, full_name FROM employees WHERE position = 'Рабочий' ORDER BY greenhouse_id ASC, id ASC")
+    .all()) as Array<{ id: number; full_name: string }>;
+
+  const insert = a.prepare(`
+    INSERT INTO users (full_name, login, password_hash, role, is_active)
+    VALUES (@full_name, @login, @password_hash, 'worker', 1)
+  `);
+
+  for (let i = 0; i < workers.length; i++) {
+    const login = `worker${i + 1}`;
+    const exists = (await a.prepare("SELECT id FROM users WHERE login = ?").get(login)) as { id: number } | undefined;
+    if (!exists) {
+      const password_hash = bcrypt.hashSync("worker123", SALT_ROUNDS);
+      await insert.run({ full_name: workers[i]!.full_name, login, password_hash });
+    }
+    await a.prepare("UPDATE users SET employee_id = ? WHERE login = ?").run(workers[i]!.id, login);
+  }
+
+  if (workers[0]) {
+    await a.prepare("UPDATE users SET employee_id = ? WHERE login = 'nurlan'").run(workers[0].id);
+  }
+}
+
 export async function seedAll(pool: Pool) {
   const a = createDbAdapter(pool);
   await seedUsersIfEmpty(pool, a);
   await seedDomainIfEmpty(pool, a);
-  try {
-    const agr = (await a
-      .prepare("SELECT id FROM employees WHERE position = 'Агроном' ORDER BY id ASC LIMIT 1")
-      .get()) as { id: number } | undefined;
-    const worker = (await a
-      .prepare("SELECT id FROM employees WHERE position = 'Рабочий' ORDER BY id ASC LIMIT 1")
-      .get()) as { id: number } | undefined;
-
-    if (agr?.id) await a.prepare("UPDATE users SET employee_id = ? WHERE login = 'asel' AND employee_id IS NULL").run(agr.id);
-    if (worker?.id) await a.prepare("UPDATE users SET employee_id = ? WHERE login = 'nurlan' AND employee_id IS NULL").run(worker.id);
-  } catch {
-    // пусто
-  }
-
+  await ensureWorkerUsers(pool, a);
   await backfillRichDemoData(pool);
 }
 
@@ -218,12 +230,23 @@ async function seedDomainIfEmpty(pool: Pool, a: DbAdapter) {
       greenhouseIds.push(Number(r.lastInsertRowid));
     }
 
-    // Упрощённый состав персонала по ТЗ диплома: агроном + рабочие.
-    const employees = [
-      { full_name: "Айгуль Жумабаева", position: "Агроном", greenhouse_id: greenhouseIds[0], phone: "+7 701 000 00 02", status: "на смене", notes: "" },
-      { full_name: "Руслан Карабаев", position: "Рабочий", greenhouse_id: greenhouseIds[1], phone: "+7 701 000 00 03", status: "на смене", notes: "" },
-      { full_name: "София Нурбекова", position: "Рабочий", greenhouse_id: greenhouseIds[3], phone: "+7 701 000 00 04", status: "на смене", notes: "" },
-    ] as const;
+    // Операторы (рабочие): по одному на каждую теплицу.
+    const workerNames = [
+      "Руслан Карабаев",
+      "София Нурбекова",
+      "Ерлан Сатыбалды",
+      "Айдана Омарова",
+      "Нурбек Алтынов",
+      "Дана Тлеуберген",
+    ];
+    const employees = greenhouseIds.map((ghId, i) => ({
+      full_name: workerNames[i] ?? `Оператор ${i + 1}`,
+      position: "Рабочий" as const,
+      greenhouse_id: ghId,
+      phone: `+7 701 000 00 ${String(10 + i).padStart(2, "0")}`,
+      status: "на смене" as const,
+      notes: "",
+    }));
 
     const employeeIds: number[] = [];
     for (const e of employees) {
@@ -231,13 +254,10 @@ async function seedDomainIfEmpty(pool: Pool, a: DbAdapter) {
       employeeIds.push(Number(r.lastInsertRowid));
     }
 
-    // Ответственные назначаем из доступного набора (агроном/рабочие).
-    await db.prepare("UPDATE greenhouses SET responsible_employee_id = ? WHERE id = ?").run(employeeIds[0], greenhouseIds[0]);
-    await db.prepare("UPDATE greenhouses SET responsible_employee_id = ? WHERE id = ?").run(employeeIds[1], greenhouseIds[1]);
-    await db.prepare("UPDATE greenhouses SET responsible_employee_id = ? WHERE id = ?").run(employeeIds[1], greenhouseIds[2]);
-    await db.prepare("UPDATE greenhouses SET responsible_employee_id = ? WHERE id = ?").run(employeeIds[2], greenhouseIds[3]);
-    await db.prepare("UPDATE greenhouses SET responsible_employee_id = ? WHERE id = ?").run(employeeIds[0], greenhouseIds[4]);
-    await db.prepare("UPDATE greenhouses SET responsible_employee_id = ? WHERE id = ?").run(employeeIds[2], greenhouseIds[5]);
+    for (let i = 0; i < greenhouseIds.length; i++) {
+      const empId = employeeIds[i];
+      if (empId) await db.prepare("UPDATE greenhouses SET responsible_employee_id = ? WHERE id = ?").run(empId, greenhouseIds[i]);
+    }
 
     const cultures = [
       { name: "Томат Черри", greenhouse_id: greenhouseIds[0], section: "A1", planted_date: "2026-03-10", harvest_date: "2026-06-20", temp_norm: 24, humidity_norm: 65, stage: "Плодоношение", notes: "" },

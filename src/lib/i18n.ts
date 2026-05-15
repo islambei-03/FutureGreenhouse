@@ -393,6 +393,77 @@ export type I18nKey =
   | "ai.planner.saved"
   | "ai.planner.empty"
   | "ai.planner.failed"
+  | "ai.tab.anomaly"
+  | "ai.tab.training"
+  | "ai.vision.hint"
+  | "ai.anomaly.title"
+  | "ai.anomaly.subtitle"
+  | "ai.anomaly.run"
+  | "ai.anomaly.days"
+  | "ai.anomaly.failed"
+  | "ai.anomaly.chartTemp"
+  | "ai.anomaly.chartHum"
+  | "ai.anomaly.legend"
+  | "ai.anomaly.flagTemp"
+  | "ai.anomaly.flagHum"
+  | "ai.anomaly.flagOk"
+  | "ai.training.title"
+  | "ai.training.subtitle"
+  | "ai.training.progress"
+  | "ai.training.guide"
+  | "ai.training.next"
+  | "ai.training.finish"
+  | "ai.training.restart"
+  | "ai.training.complete"
+  | "ai.training.score"
+  | "ai.training.correct"
+  | "ai.training.wrong"
+  | "ai.training.s1.title"
+  | "ai.training.s1.text"
+  | "ai.training.s2.title"
+  | "ai.training.s2.text"
+  | "ai.training.s2.q"
+  | "ai.training.s2.a1"
+  | "ai.training.s2.a2"
+  | "ai.training.s2.a3"
+  | "ai.training.s3.title"
+  | "ai.training.s3.text"
+  | "ai.training.s3.q"
+  | "ai.training.s3.a1"
+  | "ai.training.s3.a2"
+  | "ai.training.s4.title"
+  | "ai.training.s4.text"
+  | "ai.training.s4.q"
+  | "ai.training.s4.a1"
+  | "ai.training.s4.a2"
+  | "ai.training.s5.title"
+  | "ai.training.s5.text"
+  | "ai.info.dataLabel"
+  | "ai.info.chat.title"
+  | "ai.info.chat.body"
+  | "ai.info.chat.data"
+  | "ai.info.map.title"
+  | "ai.info.map.body"
+  | "ai.info.map.data"
+  | "ai.info.forecast.title"
+  | "ai.info.forecast.body"
+  | "ai.info.forecast.data"
+  | "ai.info.anomaly.title"
+  | "ai.info.anomaly.body"
+  | "ai.info.anomaly.data"
+  | "ai.info.recommendations.title"
+  | "ai.info.recommendations.body"
+  | "ai.info.recommendations.data"
+  | "ai.info.vision.title"
+  | "ai.info.vision.body"
+  | "ai.info.vision.data"
+  | "ai.info.planner.title"
+  | "ai.info.planner.body"
+  | "ai.info.planner.data"
+  | "ai.info.training.title"
+  | "ai.info.training.body"
+  | "ai.info.training.data"
+  | "tasks.markDone"
   | "ai.forecast.title"
   | "ai.forecast.subtitle"
   | "ai.forecast.run"
@@ -871,6 +942,77 @@ const RU: Record<I18nKey, string> = {
   "ai.planner.saved": "План сохранён в системе",
   "ai.planner.empty": "Нажмите «Составить план», чтобы сгенерировать расписание.",
   "ai.planner.failed": "Не удалось составить план",
+  "tasks.markDone": "Отметить выполненной",
+  "ai.info.training.data": "Статический контент в приложении (i18n).",
+  "ai.info.training.body": "Локальный сценарий онбординга: шаги и вопросы без отправки в OpenAI. Для новых операторов.",
+  "ai.info.training.title": "Режим обучения",
+  "ai.info.planner.data": "tasks, watering_schedule, greenhouses; сохранение в app_settings (ai_week_plan).",
+  "ai.info.planner.body": "GPT-4o-mini строит план на 7 дней по открытым задачам и поливам. Можно редактировать и сохранить.",
+  "ai.info.planner.title": "Как работает планировщик",
+  "ai.info.vision.data": "Загрузка файла → /api/ai/vision → OpenAI gpt-4o (не сохраняется в БД).",
+  "ai.info.vision.body": "Изображение отправляется в GPT-4o Vision. Подходит растение, плод, лист, урожай — модель опишет состояние и даст рекомендации.",
+  "ai.info.vision.title": "Как работает анализ фото",
+  "ai.info.recommendations.data": "Датчики, tasks, watering_schedule, greenhouses.",
+  "ai.info.recommendations.body": "Правила на сервере: отклонения датчиков, просрочки, статус теплицы. Обновляются при открытии вкладки.",
+  "ai.info.recommendations.title": "Как работают советы",
+  "ai.info.anomaly.data": "sensor_data за 7/14 дней по выбранной теплице.",
+  "ai.info.anomaly.body": "Z-score по истории и порог резкого скачка между соседними точками. Без вызова OpenAI — быстрый математический анализ.",
+  "ai.info.anomaly.title": "Как работает детектор",
+  "ai.info.forecast.data": "sensor_data за 7 дней; нормы temp/humidity из greenhouses.",
+  "ai.info.forecast.body": "Линейная экстраполяция по 7 дням истории датчиков + зоны риска по нормам теплицы.",
+  "ai.info.forecast.title": "Как работает прогноз",
+  "ai.info.map.data": "computeGreenhouseHealth(); при клике — buildSingleGreenhouseContext + gpt-4o-mini.",
+  "ai.info.map.body": "Цвет блока = оценка здоровья 0–100% (датчики, просроченные задачи, полив). Клик — краткая AI-сводка по теплице.",
+  "ai.info.map.title": "Как работает карта",
+  "ai.info.chat.data": "Таблицы greenhouses, sensor_data, tasks, watering_schedule, cultures; OPENAI_API_KEY.",
+  "ai.info.chat.body": "GPT-4o-mini отвечает с учётом текущих показаний теплиц, задач и полива из базы. История сохраняется в ai_chat_history.",
+  "ai.info.chat.title": "Как работает чат",
+  "ai.info.dataLabel": "Источник данных",
+  "ai.training.s5.text": "Карта теплиц, прогноз, анализ фото и план недели — во вкладке «ИИ». Внизу каждой вкладки есть пояснение.",
+  "ai.training.s5.title": "ИИ-ассистент",
+  "ai.training.s4.a2": "Ответственному оператору",
+  "ai.training.s4.a1": "Только агроному",
+  "ai.training.s4.q": "Куда приходит уведомление о новой задаче?",
+  "ai.training.s4.text": "При новой задаче приходит уведомление в колокольчик. Алерты датчиков видят все.",
+  "ai.training.s4.title": "Уведомления",
+  "ai.training.s3.a2": "Только директор",
+  "ai.training.s3.a1": "Назначенный оператор (рабочий)",
+  "ai.training.s3.q": "Кто может отметить задачу выполненной?",
+  "ai.training.s3.text": "Вам приходят задачи в разделе «Задачи». Отметьте выполнение галочкой или кнопкой.",
+  "ai.training.s3.title": "Задачи",
+  "ai.training.s2.a3": "В профиле пользователя",
+  "ai.training.s2.a2": "В разделе «Параметры»",
+  "ai.training.s2.a1": "Только в отчётах за месяц",
+  "ai.training.s2.q": "Где смотреть текущие показания датчиков?",
+  "ai.training.s2.text": "На странице «Параметры» смотрите графики температуры и влажности в реальном времени.",
+  "ai.training.s2.title": "Параметры",
+  "ai.training.s1.text": "Future Greenhouse объединяет датчики, задачи, полив и ИИ. Вы будете отвечать за свою теплицу.",
+  "ai.training.s1.title": "Добро пожаловать",
+  "ai.training.wrong": "Не совсем. Прочитайте подсказку ещё раз.",
+  "ai.training.correct": "Верно! Можно идти дальше.",
+  "ai.training.score": "Правильных ответов",
+  "ai.training.complete": "Тур завершён!",
+  "ai.training.restart": "Пройти снова",
+  "ai.training.finish": "Завершить",
+  "ai.training.next": "Далее",
+  "ai.training.guide": "AI-гид",
+  "ai.training.progress": "Шаг",
+  "ai.training.subtitle": "Интерактивный тур для новых операторов с проверкой знаний.",
+  "ai.training.title": "Режим обучения",
+  "ai.anomaly.flagOk": "В норме",
+  "ai.anomaly.flagHum": "Аномалия влажности",
+  "ai.anomaly.flagTemp": "Аномалия температуры",
+  "ai.anomaly.legend": "● Крупная красная точка — аномалия (статистический выброс или резкий скачок)",
+  "ai.anomaly.chartHum": "Влажность %",
+  "ai.anomaly.chartTemp": "Температура °C",
+  "ai.anomaly.failed": "Не удалось построить анализ",
+  "ai.anomaly.days": "дн.",
+  "ai.anomaly.run": "Найти аномалии",
+  "ai.anomaly.subtitle": "Красные точки на графике — необычные скачки температуры и влажности по истории датчиков.",
+  "ai.anomaly.title": "Детектор аномалий",
+  "ai.vision.hint": "Можно загружать растение, плод, лист, урожай или проблему на фото.",
+  "ai.tab.training": "Обучение",
+  "ai.tab.anomaly": "Аномалии",
   "ai.forecast.title": "AI-аналитика и прогноз",
   "ai.forecast.subtitle": "История 7 дней и прогноз на 3 дня с зонами риска (зелёная / жёлтая / красная).",
   "ai.forecast.run": "Построить прогноз",
@@ -1018,7 +1160,7 @@ const KK: Record<I18nKey, string> = {
   "dashboard.charts.tasksOpen": "Ашық",
   "greenhouses.title": "Жылыжайлар",
   "greenhouses.subtitle":
-    "Карточкалар (3 баған), ағымдағы көрсеткіштер мен күйлер. Рөлге қарай өңдеу батырмалары жасырылады.",
+    "Карточки (3 колонки), текущие показатели и статусы. Кнопки редактирования скрываются по роли.",
   "greenhouses.add": "+ Жылыжай қосу",
   "greenhouses.type": "Түрі",
   "greenhouses.area": "Ауданы",
@@ -1080,8 +1222,6 @@ const KK: Record<I18nKey, string> = {
   "parameters.humidity": "Ылғалдылық",
   "parameters.charts.temperature": "Температура графигі",
   "parameters.charts.humidity": "Ылғалдылық графигі",
-  "parameters.charts.noData":
-    "Таңдалған кезеңде жазба жоқ — «Деректер базасы» бөлімінде симуляцияны қосыңыз немесе жаңа өлшемдерді күтіңіз.",
   "parameters.table.title": "Барлық датчиктердің ағымдағы көрсеткіштері",
   "parameters.table.subtitle": "Нормадан ауытқыса — белгіленеді",
   "parameters.table.greenhouse": "Жылыжай",
@@ -1186,7 +1326,7 @@ const KK: Record<I18nKey, string> = {
   "reports.table.harvested": "Өнім (партия)",
   "reports.tab.overview": "Шолу",
   "reports.overview.hint":
-    "«Графиктер» бөлімінде — өнім, су, тапсырмалар, климат және тағы 6 талдау диаграммасы. «Деректер» — кестелер.",
+    "KPI және негізгі графиктер. PDF/Excel экспорты — жоғарғы оң жақта.",
   "reports.tab.charts": "Графиктер",
   "reports.tab.data": "Деректер",
   "reports.chart.tasksShare": "Тапсырмалар: орындалған / орындалмаған",
@@ -1441,6 +1581,78 @@ const KK: Record<I18nKey, string> = {
   "login.signIn": "Кіру",
   "login.signingIn": "Кіруде…",
   "login.adminOnly": "Тіркелу тек әкімші арқылы қолжетімді.",
+  "parameters.charts.noData": "Нет записей за выбранный период — включите симуляцию в разделе «База данных» или подождите новые замеры.",
+  "tasks.markDone": "Отметить выполненной",
+  "ai.info.training.data": "Статический контент в приложении (i18n).",
+  "ai.info.training.body": "Локальный сценарий онбординга: шаги и вопросы без отправки в OpenAI. Для новых операторов.",
+  "ai.info.training.title": "Режим обучения",
+  "ai.info.planner.data": "tasks, watering_schedule, greenhouses; сохранение в app_settings (ai_week_plan).",
+  "ai.info.planner.body": "GPT-4o-mini строит план на 7 дней по открытым задачам и поливам. Можно редактировать и сохранить.",
+  "ai.info.planner.title": "Как работает планировщик",
+  "ai.info.vision.data": "Загрузка файла → /api/ai/vision → OpenAI gpt-4o (не сохраняется в БД).",
+  "ai.info.vision.body": "Изображение отправляется в GPT-4o Vision. Подходит растение, плод, лист, урожай — модель опишет состояние и даст рекомендации.",
+  "ai.info.vision.title": "Как работает анализ фото",
+  "ai.info.recommendations.data": "Датчики, tasks, watering_schedule, greenhouses.",
+  "ai.info.recommendations.body": "Правила на сервере: отклонения датчиков, просрочки, статус теплицы. Обновляются при открытии вкладки.",
+  "ai.info.recommendations.title": "Как работают советы",
+  "ai.info.anomaly.data": "sensor_data за 7/14 дней по выбранной теплице.",
+  "ai.info.anomaly.body": "Z-score по истории и порог резкого скачка между соседними точками. Без вызова OpenAI — быстрый математический анализ.",
+  "ai.info.anomaly.title": "Как работает детектор",
+  "ai.info.forecast.data": "sensor_data за 7 дней; нормы temp/humidity из greenhouses.",
+  "ai.info.forecast.body": "Линейная экстраполяция по 7 дням истории датчиков + зоны риска по нормам теплицы.",
+  "ai.info.forecast.title": "Как работает прогноз",
+  "ai.info.map.data": "computeGreenhouseHealth(); при клике — buildSingleGreenhouseContext + gpt-4o-mini.",
+  "ai.info.map.body": "Цвет блока = оценка здоровья 0–100% (датчики, просроченные задачи, полив). Клик — краткая AI-сводка по теплице.",
+  "ai.info.map.title": "Как работает карта",
+  "ai.info.chat.data": "Таблицы greenhouses, sensor_data, tasks, watering_schedule, cultures; OPENAI_API_KEY.",
+  "ai.info.chat.body": "GPT-4o-mini отвечает с учётом текущих показаний теплиц, задач и полива из базы. История сохраняется в ai_chat_history.",
+  "ai.info.chat.title": "Как работает чат",
+  "ai.info.dataLabel": "Источник данных",
+  "ai.training.s5.text": "Карта теплиц, прогноз, анализ фото и план недели — во вкладке «ИИ». Внизу каждой вкладки есть пояснение.",
+  "ai.training.s5.title": "ИИ-ассистент",
+  "ai.training.s4.a2": "Ответственному оператору",
+  "ai.training.s4.a1": "Только агроному",
+  "ai.training.s4.q": "Куда приходит уведомление о новой задаче?",
+  "ai.training.s4.text": "При новой задаче приходит уведомление в колокольчик. Алерты датчиков видят все.",
+  "ai.training.s4.title": "Уведомления",
+  "ai.training.s3.a2": "Только директор",
+  "ai.training.s3.a1": "Назначенный оператор (рабочий)",
+  "ai.training.s3.q": "Кто может отметить задачу выполненной?",
+  "ai.training.s3.text": "Вам приходят задачи в разделе «Задачи». Отметьте выполнение галочкой или кнопкой.",
+  "ai.training.s3.title": "Задачи",
+  "ai.training.s2.a3": "В профиле пользователя",
+  "ai.training.s2.a2": "В разделе «Параметры»",
+  "ai.training.s2.a1": "Только в отчётах за месяц",
+  "ai.training.s2.q": "Где смотреть текущие показания датчиков?",
+  "ai.training.s2.text": "На странице «Параметры» смотрите графики температуры и влажности в реальном времени.",
+  "ai.training.s2.title": "Параметры",
+  "ai.training.s1.text": "Future Greenhouse объединяет датчики, задачи, полив и ИИ. Вы будете отвечать за свою теплицу.",
+  "ai.training.s1.title": "Добро пожаловать",
+  "ai.training.wrong": "Не совсем. Прочитайте подсказку ещё раз.",
+  "ai.training.correct": "Верно! Можно идти дальше.",
+  "ai.training.score": "Правильных ответов",
+  "ai.training.complete": "Тур завершён!",
+  "ai.training.restart": "Пройти снова",
+  "ai.training.finish": "Завершить",
+  "ai.training.next": "Далее",
+  "ai.training.guide": "AI-гид",
+  "ai.training.progress": "Шаг",
+  "ai.training.subtitle": "Интерактивный тур для новых операторов с проверкой знаний.",
+  "ai.training.title": "Режим обучения",
+  "ai.anomaly.flagOk": "В норме",
+  "ai.anomaly.flagHum": "Аномалия влажности",
+  "ai.anomaly.flagTemp": "Аномалия температуры",
+  "ai.anomaly.legend": "● Крупная красная точка — аномалия (статистический выброс или резкий скачок)",
+  "ai.anomaly.chartHum": "Влажность %",
+  "ai.anomaly.chartTemp": "Температура °C",
+  "ai.anomaly.failed": "Не удалось построить анализ",
+  "ai.anomaly.days": "дн.",
+  "ai.anomaly.run": "Найти аномалии",
+  "ai.anomaly.subtitle": "Красные точки на графике — необычные скачки температуры и влажности по истории датчиков.",
+  "ai.anomaly.title": "Детектор аномалий",
+  "ai.vision.hint": "Можно загружать растение, плод, лист, урожай или проблему на фото.",
+  "ai.tab.training": "Обучение",
+  "ai.tab.anomaly": "Аномалии",
 };
 
 export function t(locale: Locale, key: I18nKey): string {

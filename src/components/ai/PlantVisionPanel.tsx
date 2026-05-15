@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/I18nContext";
 import type { PlantVisionResult } from "@/lib/ai/vision";
+import AiTabInfo from "@/components/ai/AiTabInfo";
 
 export default function PlantVisionPanel() {
   const { t } = useI18n();
@@ -56,6 +57,7 @@ export default function PlantVisionPanel() {
       <header>
         <h3 className="font-semibold">{t("ai.vision.title")}</h3>
         <p className="text-sm text-[var(--muted)] mt-1">{t("ai.vision.subtitle")}</p>
+        <p className="text-xs text-[var(--muted)] mt-2">{t("ai.vision.hint")}</p>
       </header>
 
       <div className="rounded-2xl border border-dashed border-[var(--border)] bg-black/10 p-6 text-center">
@@ -136,6 +138,7 @@ export default function PlantVisionPanel() {
           ) : null}
         </article>
       ) : null}
+      <AiTabInfo titleKey="ai.info.vision.title" bodyKey="ai.info.vision.body" dataKey="ai.info.vision.data" />
     </section>
   );
 }

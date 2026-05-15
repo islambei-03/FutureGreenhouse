@@ -32,6 +32,10 @@ function canCreate(role: UserRole) {
   return role === "admin" || role === "agronomist";
 }
 
+function canToggleDone(role: UserRole) {
+  return role === "admin" || role === "agronomist" || role === "worker";
+}
+
 function toneByPriority(p: TaskRow["priority"]) {
   if (p === "срочный") return "danger" as const;
   if (p === "высокий") return "warning" as const;
@@ -130,12 +134,22 @@ export default function TasksPage() {
   }, [items]);
 
   async function toggleDone(id: number, done: boolean) {
-    await fetch("/api/tasks", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id, is_completed: done ? 1 : 0 }),
-    }).catch(() => null);
-    await load();
+    setError(null);
+    try {
+      const res = await fetch("/api/tasks", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id, is_completed: done ? 1 : 0 }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        setError(data.error || tr("error.saveFailed"));
+        return;
+      }
+      await load();
+    } catch {
+      setError(tr("error.network"));
+    }
   }
 
   async function create() {
@@ -246,12 +260,16 @@ export default function TasksPage() {
             {filtered.map((t) => (
               <Card key={t.id} className="p-4 hover:bg-white/5 transition">
                 <div className="flex items-start gap-3">
-                  <input
-                    type="checkbox"
-                    checked={!!t.is_completed}
-                    onChange={(e) => toggleDone(t.id, e.target.checked)}
-                    className="mt-1 accent-[color:var(--accent)]"
-                  />
+                  {canToggleDone(role) ? (
+                    <input
+                      type="checkbox"
+                      checked={!!t.is_completed}
+                      onChange={(e) => toggleDone(t.id, e.target.checked)}
+                      className="mt-1 accent-[color:var(--accent)] shrink-0"
+                    />
+                  ) : (
+                    <span className="mt-1 w-4 h-4 rounded border border-[var(--border)] shrink-0" />
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-3">
                       <div className={t.is_completed ? "line-through text-[var(--muted)]" : "font-semibold"}>
@@ -275,6 +293,11 @@ export default function TasksPage() {
                         {tr("tasks.deadline")}: <span className="text-[var(--text)]">{t.deadline ?? "—"}</span>
                       </span>
                     </div>
+                    {canToggleDone(role) && !t.is_completed ? (
+                      <RippleButton type="button" className="mt-3 text-sm px-4 py-2" onClick={() => toggleDone(t.id, true)}>
+                        {tr("tasks.markDone")}
+                      </RippleButton>
+                    ) : null}
                   </div>
                 </div>
               </Card>

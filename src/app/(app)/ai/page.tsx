@@ -3,16 +3,25 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/I18nContext";
 import type { I18nKey } from "@/lib/i18n";
+import AiTabInfo from "@/components/ai/AiTabInfo";
+import AnomalyDetectorPanel from "@/components/ai/AnomalyDetectorPanel";
 import ForecastChart from "@/components/ai/ForecastChart";
 import GreenhouseMap from "@/components/ai/GreenhouseMap";
-import HealthRing from "@/components/ai/HealthRing";
 import PlantVisionPanel from "@/components/ai/PlantVisionPanel";
+import TrainingTour from "@/components/ai/TrainingTour";
 import WeekPlanner from "@/components/ai/WeekPlanner";
 import type { GreenhouseForecast } from "@/lib/ai/forecast";
-import type { GreenhouseHealth } from "@/lib/ai/health";
 import type { AiRecommendation } from "@/lib/ai/recommendations";
 
-type AiTab = "chat" | "forecast" | "health" | "recommendations" | "map" | "vision" | "planner";
+type AiTab =
+  | "chat"
+  | "forecast"
+  | "recommendations"
+  | "map"
+  | "vision"
+  | "planner"
+  | "anomaly"
+  | "training";
 
 type ChatRow = {
   id: number;
@@ -82,9 +91,6 @@ export default function AiPage() {
   const [forecastLoading, setForecastLoading] = useState(false);
   const [forecastGh, setForecastGh] = useState<number | null>(null);
 
-  const [health, setHealth] = useState<GreenhouseHealth[]>([]);
-  const [healthLoading, setHealthLoading] = useState(false);
-
   const [recommendations, setRecommendations] = useState<AiRecommendation[]>([]);
   const [recLoading, setRecLoading] = useState(false);
 
@@ -120,24 +126,6 @@ export default function AiPage() {
     }
   }
 
-  async function loadHealth() {
-    setHealthLoading(true);
-    try {
-      const res = await fetch("/api/ai/health", { cache: "no-store" });
-      const data = (await res.json().catch(() => null)) as null | {
-        ok: boolean;
-        health?: GreenhouseHealth[];
-        error?: string;
-      };
-      if (data?.ok && data.health) setHealth(data.health);
-      else if (!res.ok) setError(data?.error || `${tr("error.network")} (${res.status})`);
-    } catch {
-      setError(tr("error.network"));
-    } finally {
-      setHealthLoading(false);
-    }
-  }
-
   async function loadRecommendations() {
     setRecLoading(true);
     try {
@@ -162,7 +150,6 @@ export default function AiPage() {
   }, []);
 
   useEffect(() => {
-    if (tab === "health") loadHealth();
     if (tab === "recommendations") loadRecommendations();
   }, [tab]);
 
@@ -238,12 +225,13 @@ export default function AiPage() {
         <p className="text-sm text-[var(--muted)] mt-1">{tr("ai.subtitle")}</p>
         <div className="mt-4 flex flex-wrap gap-2">
           {tabBtn("chat", "ai.tab.chat")}
-          {tabBtn("forecast", "ai.tab.forecast")}
-          {tabBtn("health", "ai.tab.health")}
-          {tabBtn("recommendations", "ai.tab.recommendations")}
           {tabBtn("map", "ai.tab.map")}
+          {tabBtn("forecast", "ai.tab.forecast")}
+          {tabBtn("anomaly", "ai.tab.anomaly")}
+          {tabBtn("recommendations", "ai.tab.recommendations")}
           {tabBtn("vision", "ai.tab.vision")}
           {tabBtn("planner", "ai.tab.planner")}
+          {tabBtn("training", "ai.tab.training")}
         </div>
       </div>
 
@@ -333,6 +321,7 @@ export default function AiPage() {
               </button>
             </form>
           </section>
+          <AiTabInfo titleKey="ai.info.chat.title" bodyKey="ai.info.chat.body" dataKey="ai.info.chat.data" />
         </>
       ) : null}
 
@@ -364,39 +353,17 @@ export default function AiPage() {
             </button>
           </div>
           {forecast ? <ForecastChart forecast={forecast} /> : <p className="text-sm text-[var(--muted)]">{tr("ai.forecast.empty")}</p>}
+          <AiTabInfo titleKey="ai.info.forecast.title" bodyKey="ai.info.forecast.body" dataKey="ai.info.forecast.data" />
         </section>
       ) : null}
 
-      {tab === "health" ? (
+            {tab === "anomaly" ? (
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 sm:p-6">
-          <div className="font-semibold">{tr("ai.health.title")}</div>
-          <p className="text-sm text-[var(--muted)] mt-1 mb-4">{tr("ai.health.subtitle")}</p>
-          {healthLoading ? (
-            <p className="text-sm text-[var(--muted)]">{tr("common.loading")}</p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {health.map((h) => (
-                <div key={h.id} className="rounded-2xl border border-[var(--border)] bg-black/10 p-4 flex gap-4">
-                  <HealthRing pct={h.healthPct} size={56} />
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium">{h.name}</div>
-                    <div className="text-xs text-[var(--muted)] mt-0.5">
-                      {tr("ai.health.score")}: {h.healthPct}%
-                    </div>
-                    <ul className="mt-2 text-xs text-[var(--muted)] space-y-1">
-                      {h.factors.slice(0, 3).map((f) => (
-                        <li key={f}>• {f}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <AnomalyDetectorPanel />
         </section>
       ) : null}
 
-      {tab === "recommendations" ? (
+{tab === "recommendations" ? (
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 sm:p-6">
           <div className="flex items-start justify-between gap-3 mb-4">
             <div>
@@ -423,12 +390,14 @@ export default function AiPage() {
               ))}
             </div>
           )}
+          <AiTabInfo titleKey="ai.info.recommendations.title" bodyKey="ai.info.recommendations.body" dataKey="ai.info.recommendations.data" />
         </section>
       ) : null}
 
       {tab === "map" ? (
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 sm:p-6">
           <GreenhouseMap />
+          <AiTabInfo titleKey="ai.info.map.title" bodyKey="ai.info.map.body" dataKey="ai.info.map.data" />
         </section>
       ) : null}
 
@@ -441,6 +410,13 @@ export default function AiPage() {
       {tab === "planner" ? (
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 sm:p-6">
           <WeekPlanner />
+          <AiTabInfo titleKey="ai.info.planner.title" bodyKey="ai.info.planner.body" dataKey="ai.info.planner.data" />
+        </section>
+      ) : null}
+
+      {tab === "training" ? (
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 sm:p-6">
+          <TrainingTour />
         </section>
       ) : null}
     </main>

@@ -142,4 +142,13 @@ export async function runMigrations(pool: Pool) {
     INSERT INTO app_settings (key, value) VALUES ('sensor_simulation_enabled', '0')
     ON CONFLICT (key) DO NOTHING;
   `);
+
+  await pool.query(`UPDATE employees SET position = 'Рабочий' WHERE position IS DISTINCT FROM 'Рабочий';`);
+
+  if (!(await hasColumn(pool, "notifications", "target_user_id"))) {
+    await pool.query(`ALTER TABLE notifications ADD COLUMN target_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;`);
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_notifications_target_user ON notifications(target_user_id, is_read, created_at DESC);`,
+    );
+  }
 }

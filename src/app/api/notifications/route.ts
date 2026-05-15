@@ -14,20 +14,39 @@ export async function GET() {
   const auth = await requireApiRoles("any");
   if (!auth.ok) return auth.response;
 
-  const rows = (await db()
-    .prepare(
-      `
-      SELECT id, title, message, type, is_read, created_at
+  const userId = Number(auth.user.id);
+  const isPrivileged = auth.user.role === "admin" || auth.user.role === "agronomist" || auth.user.role === "director";
+
+  const rows = isPrivileged
+    ? ((await db()
+        .prepare(
+          `
+      SELECT id, title, message, type, is_read, created_at, target_user_id
       FROM notifications
       ORDER BY created_at DESC
-      LIMIT 50
+      LIMIT 80
     `,
-    )
-    .all()) as unknown[];
+        )
+        .all()) as unknown[])
+    : ((await db()
+        .prepare(
+          `
+      SELECT id, title, message, type, is_read, created_at, target_user_id
+      FROM notifications
+      WHERE target_user_id IS NULL OR target_user_id = ?
+      ORDER BY created_at DESC
+      LIMIT 80
+    `,
+        )
+        .all(userId)) as unknown[]);
 
-  const unread = (await db()
-    .prepare("SELECT COUNT(*)::int as c FROM notifications WHERE is_read = 0")
-    .get()) as { c: number };
+  const unread = isPrivileged
+    ? ((await db().prepare("SELECT COUNT(*)::int as c FROM notifications WHERE is_read = 0").get()) as { c: number })
+    : ((await db()
+        .prepare(
+          "SELECT COUNT(*)::int as c FROM notifications WHERE is_read = 0 AND (target_user_id IS NULL OR target_user_id = ?)",
+        )
+        .get(userId)) as { c: number });
 
   return NextResponse.json({ ok: true, notifications: rows, unreadCount: unread.c });
 }

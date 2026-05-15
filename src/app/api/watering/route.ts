@@ -5,6 +5,20 @@ import { requireApiRoles } from "@/lib/api/rbac";
 import { auditLog } from "@/lib/audit";
 import { apiT } from "@/lib/api/i18n";
 
+async function getEmployeeGreenhouseId(userId: string): Promise<number | null> {
+  const row = (await db()
+    .prepare(
+      `
+      SELECT e.greenhouse_id
+      FROM users u
+      JOIN employees e ON e.id = u.employee_id
+      WHERE u.id = ?
+    `,
+    )
+    .get(Number(userId))) as { greenhouse_id: number | null } | undefined;
+  return row?.greenhouse_id ?? null;
+}
+
 const GetQuerySchema = z.object({
   range: z.enum(["today", "week"]).optional(),
 });
@@ -37,10 +51,16 @@ export async function GET(req: Request) {
   }
 
   const range = parsed.data.range ?? "today";
-  const where =
+  let where =
     range === "today"
       ? "(ws.scheduled_at AT TIME ZONE 'UTC')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date"
       : "ws.scheduled_at >= date_trunc('day', CURRENT_TIMESTAMP AT TIME ZONE 'UTC') AND ws.scheduled_at < date_trunc('day', CURRENT_TIMESTAMP AT TIME ZONE 'UTC') + interval '7 day'";
+
+  if (auth.user.role === "worker") {
+    const ghId = await getEmployeeGreenhouseId(auth.user.id);
+    if (!ghId) return NextResponse.json({ ok: true, range, items: [] });
+    where += ` AND ws.greenhouse_id = ${ghId}`;
+  }
 
   const rows = (await db()
     .prepare(
@@ -114,9 +134,14 @@ export async function PUT(req: Request) {
     if (typeof parsed.data.is_done !== "number") {
       return NextResponse.json({ ok: false, error: await apiT("api.forbidden") }, { status: 403 });
     }
-    await db()
-      .prepare("UPDATE watering_schedule SET is_done = ? WHERE id = ?")
-      .run(parsed.data.is_done, parsed.data.id);
+    const ghId = await getEmployeeGreenhouseId(auth.user.id);
+    if (!ghId) return NextResponse.json({ ok: false, error: await apiT("api.forbidden") }, { status: 403 });
+    const ok = await db()
+      .prepare("UPDATE watering_schedule SET is_done = ? WHERE id = ? AND greenhouse_id = ?")
+      .run(parsed.data.is_done, parsed.data.id, ghId);
+    if (ok.changes === 0) {
+      return NextResponse.json({ ok: false, error: await apiT("api.forbidden") }, { status: 403 });
+    }
     await auditLog({
       actorUserId: Number(auth.user.id),
       action: "mark",

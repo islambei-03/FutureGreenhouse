@@ -238,6 +238,8 @@ export type I18nKey =
   | "reports.chart.avgTempGh"
   | "reports.chart.co2Daily"
   | "reports.chart.notificationsByType"
+  | "reports.chart.avgHumGh"
+  | "reports.chart.tasksCompletionDaily"
   | "reports.charts.analyticsBlock"
   | "reports.legend.done"
   | "reports.legend.pending"
@@ -354,6 +356,22 @@ export type I18nKey =
   | "ai.inputPlaceholder"
   | "ai.send"
   | "ai.error.noReply"
+  | "ai.tab.chat"
+  | "ai.tab.forecast"
+  | "ai.tab.health"
+  | "ai.tab.recommendations"
+  | "ai.forecast.title"
+  | "ai.forecast.subtitle"
+  | "ai.forecast.run"
+  | "ai.forecast.empty"
+  | "ai.health.title"
+  | "ai.health.subtitle"
+  | "ai.health.score"
+  | "ai.recommendations.title"
+  | "ai.recommendations.subtitle"
+  | "ai.recommendations.refresh"
+  | "dashboard.aiRecommendations.title"
+  | "parameters.aiAnalyze"
   | "watering.week.more"
   | "error.network"
   | "error.checkFields"
@@ -665,7 +683,9 @@ const RU: Record<I18nKey, string> = {
   "reports.chart.avgTempGh": "Средняя температура по теплицам",
   "reports.chart.co2Daily": "CO₂ по дням",
   "reports.chart.notificationsByType": "Уведомления по типам",
-  "reports.charts.analyticsBlock": "Дополнительная аналитика (6 диаграмм)",
+  "reports.chart.avgHumGh": "Средняя влажность по теплицам",
+  "reports.chart.tasksCompletionDaily": "Выполнение задач по дням (%)",
+  "reports.charts.analyticsBlock": "Дополнительная аналитика",
   "reports.legend.done": "Выполнено",
   "reports.legend.pending": "Не выполнено / ожидает",
   "notifications.title": "Уведомления",
@@ -781,6 +801,22 @@ const RU: Record<I18nKey, string> = {
   "ai.inputPlaceholder": "Напиши сообщение…",
   "ai.send": "Отправить",
   "ai.error.noReply": "Не удалось получить ответ",
+  "ai.tab.chat": "Чат",
+  "ai.tab.forecast": "Прогноз",
+  "ai.tab.health": "Здоровье",
+  "ai.tab.recommendations": "Советы",
+  "ai.forecast.title": "AI-аналитика и прогноз",
+  "ai.forecast.subtitle": "История 7 дней и прогноз на 3 дня с зонами риска (зелёная / жёлтая / красная).",
+  "ai.forecast.run": "Построить прогноз",
+  "ai.forecast.empty": "Выберите теплицу и нажмите «Построить прогноз».",
+  "ai.health.title": "Здоровье теплиц",
+  "ai.health.subtitle": "Оценка 0–100% по датчикам, задачам и поливу.",
+  "ai.health.score": "Здоровье",
+  "ai.recommendations.title": "AI-рекомендации",
+  "ai.recommendations.subtitle": "Автоматические советы по данным системы.",
+  "ai.recommendations.refresh": "Обновить",
+  "dashboard.aiRecommendations.title": "AI-советы",
+  "parameters.aiAnalyze": "AI-анализ",
   "watering.week.more": "и ещё",
   "error.network": "Ошибка сети. Повторите попытку.",
   "error.checkFields": "Проверьте поля",
@@ -1094,7 +1130,9 @@ const KK: Record<I18nKey, string> = {
   "reports.chart.avgTempGh": "Жылыжайлар бойынша орташа температура",
   "reports.chart.co2Daily": "CO₂ күндер бойынша",
   "reports.chart.notificationsByType": "Хабарландырулар түрі бойынша",
-  "reports.charts.analyticsBlock": "Қосымша талдау (6 диаграмма)",
+  "reports.chart.avgHumGh": "Жылыжайлар бойынша орташа ылғалдылық",
+  "reports.chart.tasksCompletionDaily": "Күндер бойынша тапсырма орындалуы (%)",
+  "reports.charts.analyticsBlock": "Қосымша талдау",
   "reports.legend.done": "Орындалған",
   "reports.legend.pending": "Орындалмаған / күтуде",
   "notifications.title": "Хабарландырулар",
@@ -1210,6 +1248,22 @@ const KK: Record<I18nKey, string> = {
   "ai.inputPlaceholder": "Хабарлама жазыңыз…",
   "ai.send": "Жіберу",
   "ai.error.noReply": "Жауап алу мүмкін болмады",
+  "ai.tab.chat": "Чат",
+  "ai.tab.forecast": "Болжам",
+  "ai.tab.health": "Денсаулық",
+  "ai.tab.recommendations": "Кеңестер",
+  "ai.forecast.title": "AI-талдау және болжам",
+  "ai.forecast.subtitle": "7 күн тарихы және 3 күнге болжам (жасыл / сары / қызыл аймақтар).",
+  "ai.forecast.run": "Болжам құру",
+  "ai.forecast.empty": "Жылыжайды таңдап, «Болжам құру» батырмасын басыңыз.",
+  "ai.health.title": "Жылыжай денсаулығы",
+  "ai.health.subtitle": "Датчиктер, тапсырмалар және суғару бойынша 0–100%.",
+  "ai.health.score": "Денсаулық",
+  "ai.recommendations.title": "AI-ұсыныстар",
+  "ai.recommendations.subtitle": "Жүйе деректері бойынша автоматты кеңестер.",
+  "ai.recommendations.refresh": "Жаңарту",
+  "dashboard.aiRecommendations.title": "AI-кеңестер",
+  "parameters.aiAnalyze": "AI-талдау",
   "watering.week.more": "тағы",
   "error.network": "Желі қатесі. Қайта көріңіз.",
   "error.checkFields": "Өрістерді тексеріңіз",

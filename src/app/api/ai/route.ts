@@ -255,6 +255,7 @@ export async function POST(req: Request) {
     model: "gpt-4o-mini",
     messages,
     temperature: 0.4,
+    max_tokens: 900,
   });
 
   const assistantMessage = completion.choices[0]?.message?.content?.trim() || "Не смог сформировать ответ. Попробуйте переформулировать вопрос.";

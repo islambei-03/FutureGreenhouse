@@ -17,6 +17,9 @@ import {
 } from "chart.js";
 import type { ChartData, ChartOptions } from "chart.js";
 import { Bar, Doughnut, Line } from "react-chartjs-2";
+import HealthRing from "@/components/ai/HealthRing";
+import type { GreenhouseHealth } from "@/lib/ai/health";
+import type { AiRecommendation } from "@/lib/ai/recommendations";
 
 ChartJS.register(
   CategoryScale,
@@ -142,16 +145,28 @@ export default function DashboardClient() {
     tasksDaily: Array<{ day: string; total: number; done: number }>;
     sensorsDaily: Array<{ day: string; avgTemp: number | null; avgHum: number | null }>;
   } | null>(null);
+  const [aiRecs, setAiRecs] = useState<AiRecommendation[]>([]);
+  const [healthMap, setHealthMap] = useState<Record<number, number>>({});
 
   async function load() {
-    const [gRes, tRes] = await Promise.all([
+    const [gRes, tRes, recRes, healthRes] = await Promise.all([
       fetch("/api/greenhouses", { cache: "no-store" }),
       fetch("/api/tasks?today=1", { cache: "no-store" }),
+      fetch("/api/ai/recommendations", { cache: "no-store" }),
+      fetch("/api/ai/health", { cache: "no-store" }),
     ]);
     const g = (await gRes.json().catch(() => null)) as GreenhousesApi | null;
     const t = (await tRes.json().catch(() => null)) as TasksApi | null;
     if (g?.ok) setGreenhouses(g.greenhouses);
     if (t?.ok) setTasks(t.tasks);
+    const rec = (await recRes.json().catch(() => null)) as null | { ok: boolean; recommendations: AiRecommendation[] };
+    if (rec?.ok) setAiRecs(rec.recommendations);
+    const h = (await healthRes.json().catch(() => null)) as null | { ok: boolean; health: GreenhouseHealth[] };
+    if (h?.ok) {
+      const map: Record<number, number> = {};
+      for (const row of h.health) map[row.id] = row.healthPct;
+      setHealthMap(map);
+    }
   }
 
   async function loadKpi(p: "day" | "week" | "month") {
@@ -402,6 +417,32 @@ export default function DashboardClient() {
 
   return (
     <main className="min-w-0 max-w-full space-y-4">
+      {aiRecs.length ? (
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-4 sm:p-5">
+          <div className="font-semibold mb-3">{tr("dashboard.aiRecommendations.title")}</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {aiRecs.slice(0, 4).map((r, i) => (
+              <div
+                key={i}
+                className={[
+                  "rounded-xl border px-4 py-3 text-sm",
+                  r.level === "danger"
+                    ? "border-red-500/30 bg-red-500/10 text-red-100"
+                    : r.level === "warning"
+                      ? "border-yellow-400/30 bg-yellow-400/10 text-yellow-100"
+                      : r.level === "success"
+                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
+                        : "border-blue-400/30 bg-blue-400/10 text-blue-100",
+                ].join(" ")}
+              >
+                <span className="mr-2">{r.icon}</span>
+                {r.text}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {alerts.length ? (
         <div className="space-y-2">
           {alerts.map((a, i) => (
@@ -464,6 +505,7 @@ export default function DashboardClient() {
               <thead className="text-left text-[var(--muted)]">
                 <tr className="border-b border-[var(--border)]">
                   <th className="p-4">{tr("dashboard.table.greenhouse")}</th>
+                  <th className="p-4">{tr("ai.health.score")}</th>
                   <th className="p-4">{tr("dashboard.table.temperature")}</th>
                   <th className="p-4">{tr("dashboard.table.humidity")}</th>
                   <th className="p-4">CO2</th>
@@ -476,6 +518,9 @@ export default function DashboardClient() {
                     <td className="p-4">
                       <div className="font-medium">{g.name}</div>
                       <div className="text-xs text-[var(--muted)]">ID: {g.id}</div>
+                    </td>
+                    <td className="p-4">
+                      <HealthRing pct={healthMap[g.id] ?? 75} size={40} />
                     </td>
                     <td className="p-4">
                       <span className={`inline-flex items-center rounded-full border px-2 py-1 ${clampBadge(g.temperature, g.temp_min, g.temp_max)}`}>
@@ -498,7 +543,7 @@ export default function DashboardClient() {
                 ))}
                 {!greenhouses.length ? (
                   <tr>
-                    <td className="p-6 text-[var(--muted)]" colSpan={5}>
+                    <td className="p-6 text-[var(--muted)]" colSpan={6}>
                       {tr("common.loading")}
                     </td>
                   </tr>

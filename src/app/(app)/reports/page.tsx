@@ -46,7 +46,9 @@ type ReportAnalytics = {
   wateringStatus: { done: number; pending: number };
   cultureStages: Array<{ stage: string; count: number }>;
   greenhouseAvgTemp: Array<{ name: string; avg_temp: number }>;
+  greenhouseAvgHum: Array<{ name: string; avg_hum: number }>;
   co2Daily: Array<{ day: string; avgCo2: number }>;
+  tasksCompletionDaily: Array<{ day: string; pct: number }>;
   notificationsByType: Array<{ type: string; count: number }>;
 };
 
@@ -70,7 +72,7 @@ type Report = {
   analytics: ReportAnalytics;
 };
 
-type ReportTab = "overview" | "charts" | "data";
+type ReportTab = "charts" | "data";
 
 function priorityTr(p: string, tr: (k: I18nKey) => string) {
   if (p === "срочный") return tr("tasks.priority.urgent");
@@ -107,7 +109,7 @@ function chartCard(title: string, subtitle: string | undefined, children: React.
 export default function ReportsPage() {
   const { t: tr } = useI18n();
   const [period, setPeriod] = useState<Period>("month");
-  const [tab, setTab] = useState<ReportTab>("overview");
+  const [tab, setTab] = useState<ReportTab>("charts");
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -322,6 +324,41 @@ export default function ReportsPage() {
     };
   }, [report]);
 
+  const ghHumData = useMemo<ChartData<"bar"> | null>(() => {
+    if (!report || !report.analytics.greenhouseAvgHum.length) return null;
+    return {
+      labels: report.analytics.greenhouseAvgHum.map((x) => (x.name.length > 14 ? `${x.name.slice(0, 13)}…` : x.name)),
+      datasets: [
+        {
+          label: `${tr("parameters.humidity")}, %`,
+          data: report.analytics.greenhouseAvgHum.map((x) => Number(x.avg_hum.toFixed(1))),
+          backgroundColor: "rgba(59, 130, 246, 0.65)",
+          borderColor: "rgba(59, 130, 246, 0.95)",
+          borderWidth: 1,
+        },
+      ],
+    };
+  }, [report, tr]);
+
+  const tasksPctDailyData = useMemo<ChartData<"line"> | null>(() => {
+    if (!report || !report.analytics.tasksCompletionDaily.length) return null;
+    const rows = report.analytics.tasksCompletionDaily.slice(-28);
+    return {
+      labels: rows.map((r) => r.day.slice(5)),
+      datasets: [
+        {
+          label: tr("reports.kpi.tasksCompletion"),
+          data: rows.map((r) => r.pct),
+          borderColor: "rgba(34, 197, 94, 0.95)",
+          backgroundColor: "rgba(34, 197, 94, 0.12)",
+          fill: true,
+          tension: 0.28,
+          pointRadius: 2,
+        },
+      ],
+    };
+  }, [report, tr]);
+
   const notificationsBarData = useMemo<ChartData<"bar"> | null>(() => {
     if (!report || !report.analytics.notificationsByType.length) return null;
     return {
@@ -430,7 +467,6 @@ export default function ReportsPage() {
             <div className="text-xl font-semibold">{tr("reports.title")}</div>
             <div className="text-sm text-[var(--muted)] mt-1">{tr("reports.subtitle")}</div>
             <div className="mt-4 flex flex-wrap gap-2">
-              {tabBtn("overview", "reports.tab.overview")}
               {tabBtn("charts", "reports.tab.charts")}
               {tabBtn("data", "reports.tab.data")}
             </div>
@@ -469,8 +505,8 @@ export default function ReportsPage() {
         <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div>
       ) : null}
 
-      {tab === "overview" ? (
-        <>
+      {tab === "charts" ? (
+        <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {kpiCard(tr("reports.kpi.harvested"), report ? String(report.kpi.harvested) : loading ? "…" : "—")}
             {kpiCard(tr("reports.kpi.water"), report ? String(report.kpi.waterLiters) : loading ? "…" : "—")}
@@ -479,14 +515,6 @@ export default function ReportsPage() {
               report ? `${report.kpi.tasksDone}/${report.kpi.tasksTotal} (${report.kpi.tasksCompletionPct}%)` : loading ? "…" : "—",
             )}
           </div>
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)]/80 p-4 text-sm text-[var(--muted)]">
-            {tr("reports.overview.hint")}
-          </div>
-        </>
-      ) : null}
-
-      {tab === "charts" ? (
-        <div className="space-y-6">
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             {chartCard(tr("reports.chart.title"), tr("reports.chart.subtitle"), barData ? <Bar options={barOptions} data={barData} /> : null)}
             {chartCard(tr("reports.kpi.water"), tr(REPORT_PERIOD_I18N[period]), waterDailyData ? <Bar options={compactBarOptions} data={waterDailyData} /> : null)}
@@ -519,6 +547,16 @@ export default function ReportsPage() {
               notificationsBarData ? <Bar options={compactBarOptions} data={notificationsBarData} /> : (
                 <div className="text-sm text-[var(--muted)]">—</div>
               ),
+            )}
+            {chartCard(
+              tr("reports.chart.avgHumGh"),
+              undefined,
+              ghHumData ? <Bar options={compactBarOptions} data={ghHumData} /> : <div className="text-sm text-[var(--muted)]">—</div>,
+            )}
+            {chartCard(
+              tr("reports.chart.tasksCompletionDaily"),
+              undefined,
+              tasksPctDailyData ? <Line options={lineOptions} data={tasksPctDailyData} /> : <div className="text-sm text-[var(--muted)]">—</div>,
             )}
           </div>
         </div>

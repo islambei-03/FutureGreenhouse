@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requireApiRoles } from "@/lib/api/rbac";
 import ExcelJS from "exceljs";
 import PDFDocument from "pdfkit";
+import { generateReportSummary } from "@/lib/ai/summary";
 
 /** PDFKit требует Node.js runtime (не Edge). */
 export const runtime = "nodejs";
@@ -173,14 +174,16 @@ type ReportAnalytics = {
   wateringStatus: { done: number; pending: number };
   cultureStages: Array<{ stage: string; count: number }>;
   greenhouseAvgTemp: Array<{ name: string; avg_temp: number }>;
+  greenhouseAvgHum: Array<{ name: string; avg_hum: number }>;
   co2Daily: Array<{ day: string; avgCo2: number }>;
+  tasksCompletionDaily: Array<{ day: string; pct: number }>;
   notificationsByType: Array<{ type: string; count: number }>;
 };
 
 type FullReport = Awaited<ReturnType<typeof buildReport>> & { analytics: ReportAnalytics };
 
 async function loadReportAnalytics(iv: string): Promise<ReportAnalytics> {
-  const [taskPriorities, wateringRow, cultureStages, greenhouseAvgTemp, co2Daily, notificationsByType] =
+  const [taskPriorities, wateringRow, cultureStages, greenhouseAvgTemp, greenhouseAvgHum, co2Daily, notificationsByType] =
     await Promise.all([
       (await db()
         .prepare(
@@ -232,6 +235,19 @@ async function loadReportAnalytics(iv: string): Promise<ReportAnalytics> {
       (await db()
         .prepare(
           `
+      SELECT g.name, AVG(s.humidity)::float8 as avg_hum
+      FROM sensor_data s
+      JOIN greenhouses g ON g.id = s.greenhouse_id
+      WHERE s.recorded_at >= (NOW() AT TIME ZONE 'UTC' - ?::interval)
+        AND s.recorded_at <= (NOW() AT TIME ZONE 'UTC')
+      GROUP BY g.id, g.name
+      ORDER BY g.name ASC
+    `,
+        )
+        .all(iv)) as Array<{ name: string; avg_hum: number }>,
+      (await db()
+        .prepare(
+          `
       SELECT
         to_char(date_trunc('day', recorded_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD') as day,
         AVG(co2)::float8 as "avgCo2"
@@ -257,12 +273,35 @@ async function loadReportAnalytics(iv: string): Promise<ReportAnalytics> {
         .all(iv)) as Array<{ type: string; count: number }>,
     ]);
 
+  const tasksDaily = (await db()
+    .prepare(
+      `
+      SELECT
+        to_char(date_trunc('day', created_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD') as day,
+        COUNT(*)::int as total,
+        SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END)::int as done
+      FROM tasks
+      WHERE created_at >= (NOW() AT TIME ZONE 'UTC' - ?::interval)
+        AND created_at <= (NOW() AT TIME ZONE 'UTC')
+      GROUP BY 1
+      ORDER BY 1 ASC
+    `,
+    )
+    .all(iv)) as Array<{ day: string; total: number; done: number }>;
+
+  const tasksCompletionDaily = tasksDaily.map((r) => ({
+    day: r.day,
+    pct: r.total ? Math.round((r.done / r.total) * 100) : 0,
+  }));
+
   return {
     taskPriorities,
     wateringStatus: wateringRow ?? { done: 0, pending: 0 },
     cultureStages,
     greenhouseAvgTemp,
+    greenhouseAvgHum,
     co2Daily,
+    tasksCompletionDaily,
     notificationsByType,
   };
 }
@@ -1232,6 +1271,53 @@ async function exportPdf(report: FullReport) {
         scales: { y: { beginAtZero: true } },
       },
     });
+  }
+
+  if (a.greenhouseAvgHum.length) {
+    await pdfQuickChart(doc, "Средняя влажность по теплицам", {
+      type: "bar",
+      data: {
+        labels: shortChartLabels(a.greenhouseAvgHum.map((x) => x.name)),
+        datasets: [
+          {
+            label: "%",
+            data: a.greenhouseAvgHum.map((x) => Number(x.avg_hum.toFixed(1))),
+            backgroundColor: "rgba(59,130,246,0.75)",
+          },
+        ],
+      },
+      options: { plugins: { title: { display: true, text: "За период", font: { size: 15 } } }, scales: { y: { beginAtZero: true, max: 100 } } },
+    });
+  }
+
+  const tcp = a.tasksCompletionDaily.slice(-21);
+  if (tcp.length) {
+    await pdfQuickChart(doc, "Выполнение задач по дням (%)", {
+      type: "line",
+      data: {
+        labels: tcp.map((d) => d.day.slice(5)),
+        datasets: [{ label: "%", data: tcp.map((d) => d.pct), borderColor: "#22c55e", fill: true, backgroundColor: "rgba(34,197,94,0.15)" }],
+      },
+      options: { scales: { y: { min: 0, max: 100 } } },
+    });
+  }
+
+  const summaryContext = [
+    `Период: ${report.periodTitle}`,
+    `Урожай (партий): ${report.kpi.harvested}`,
+    `Вода (л): ${Math.round(report.kpi.waterLiters)}`,
+    `Задачи: ${report.kpi.tasksDone}/${report.kpi.tasksTotal} (${report.kpi.tasksCompletionPct}%)`,
+    `Полив: выполнено ${a.wateringStatus.done}, ожидает ${a.wateringStatus.pending}`,
+    `Теплицы с урожаем: ${report.table.map((t) => `${t.name}=${t.harvested}`).join(", ") || "—"}`,
+  ].join("\n");
+
+  const aiSummary = await generateReportSummary(summaryContext);
+  if (aiSummary) {
+    doc.addPage();
+    pdfSyncX(doc);
+    pdfSectionTitle(doc, "Выводы и рекомендации (ИИ)");
+    doc.fontSize(10).fillColor("#334155");
+    doc.text(aiSummary, ml0, doc.y, { width: iw0, align: "left", lineGap: 3 });
   }
 
   doc.end();

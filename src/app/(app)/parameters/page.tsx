@@ -15,6 +15,8 @@ import {
 import type { ChartOptions } from "chart.js";
 import { Line } from "react-chartjs-2";
 import TableScroll from "@/components/ui/TableScroll";
+import ForecastChart from "@/components/ai/ForecastChart";
+import type { GreenhouseForecast } from "@/lib/ai/forecast";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
@@ -69,6 +71,9 @@ export default function ParametersPage() {
   const [range, setRange] = useState<"day" | "7d">("day");
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiForecast, setAiForecast] = useState<GreenhouseForecast | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   async function load(nextSelected?: number | null, nextRange?: "day" | "7d") {
     const gh = nextSelected ?? selected;
@@ -172,6 +177,20 @@ export default function ParametersPage() {
 
   const hasChartPoints = history.length > 0;
 
+  async function runAiAnalysis() {
+    if (!selected) return;
+    setAiLoading(true);
+    setAiForecast(null);
+    setAiOpen(true);
+    try {
+      const res = await fetch(`/api/ai/forecast?greenhouse_id=${selected}`, { cache: "no-store" });
+      const data = (await res.json().catch(() => null)) as null | { ok: boolean; forecast: GreenhouseForecast };
+      if (data?.ok) setAiForecast(data.forecast);
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
   const tempChartOptions = useMemo<ChartOptions<"line">>(() => {
     const yNorm =
       !hasChartPoints && selectedMeta
@@ -274,6 +293,14 @@ export default function ParametersPage() {
               <option value="day">{tr("parameters.range.day")}</option>
               <option value="7d">{tr("parameters.range.week")}</option>
             </select>
+            <button
+              type="button"
+              onClick={runAiAnalysis}
+              disabled={!selected || aiLoading}
+              className="w-full rounded-xl px-4 py-2.5 font-medium bg-[color:var(--accent)] text-black hover:brightness-110 disabled:opacity-50 sm:w-auto"
+            >
+              {aiLoading ? tr("common.loading") : tr("parameters.aiAnalyze")}
+            </button>
           </div>
         </div>
 
@@ -340,6 +367,31 @@ export default function ParametersPage() {
         </div>
       ) : null}
 
+
+      {aiOpen ? (
+        <section className="rounded-2xl border border-[color:var(--accent)]/30 bg-[var(--card)] shadow-[var(--shadow)] p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <div>
+              <div className="font-semibold">{tr("ai.forecast.title")}</div>
+              <p className="text-sm text-[var(--muted)] mt-1">{tr("ai.forecast.subtitle")}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAiOpen(false)}
+              className="rounded-xl px-3 py-1.5 text-sm border border-[var(--border)] hover:bg-white/5"
+            >
+              ✕
+            </button>
+          </div>
+          {aiLoading ? (
+            <p className="text-sm text-[var(--muted)]">{tr("common.loading")}</p>
+          ) : aiForecast ? (
+            <ForecastChart forecast={aiForecast} />
+          ) : (
+            <p className="text-sm text-[var(--muted)]">{tr("ai.forecast.empty")}</p>
+          )}
+        </section>
+      ) : null}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <section className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] p-5">
           <div className="font-semibold">{tr("parameters.charts.temperature")}</div>

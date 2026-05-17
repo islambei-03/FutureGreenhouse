@@ -92,6 +92,8 @@ export default function UsersPage() {
   const [editing, setEditing] = useState<UserRow | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   const [form, setForm] = useState({
     full_name: "",
@@ -262,10 +264,45 @@ export default function UsersPage() {
               {tr("users.subtitle")}
             </div>
           </div>
-          <RippleButton onClick={openCreate} className="w-full shrink-0 px-4 py-2.5 sm:w-auto">
-            {tr("users.create")}
-          </RippleButton>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <RippleButton
+              variant="outline"
+              className="px-4 py-2.5"
+              disabled={syncing}
+              onClick={async () => {
+                setSyncing(true);
+                setSyncMsg(null);
+                try {
+                  const res = await fetch("/api/admin/sync-team", { method: "POST" });
+                  const data = (await res.json().catch(() => null)) as {
+                    ok?: boolean;
+                    usersCreated?: string[];
+                    usersUpdated?: string[];
+                    error?: string;
+                  } | null;
+                  if (data?.ok) {
+                    const parts = [
+                      data.usersCreated?.length ? `Созданы: ${data.usersCreated.join(", ")}` : "",
+                      data.usersUpdated?.length ? `Обновлены: ${data.usersUpdated.join(", ")}` : "",
+                    ].filter(Boolean);
+                    setSyncMsg(parts.join(". ") || tr("users.syncDone"));
+                    await loadAll();
+                  } else setSyncMsg(data?.error || tr("error.network"));
+                } catch {
+                  setSyncMsg(tr("error.network"));
+                } finally {
+                  setSyncing(false);
+                }
+              }}
+            >
+              {syncing ? tr("common.loading") : tr("users.syncTeam")}
+            </RippleButton>
+            <RippleButton onClick={openCreate} className="w-full shrink-0 px-4 py-2.5 sm:w-auto">
+              {tr("users.create")}
+            </RippleButton>
+          </div>
         </div>
+        {syncMsg ? <p className="text-sm text-[var(--muted)] mt-3">{syncMsg}</p> : null}
       </Card>
 
       <Card as="section" className="min-w-0 overflow-hidden p-0">

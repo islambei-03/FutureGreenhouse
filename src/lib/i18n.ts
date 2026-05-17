@@ -567,6 +567,22 @@ export type I18nKey =
   | "db.sensorSim.title"
   | "db.sensorSim.enable"
   | "db.sensorSim.disable"
+  | "hardware.title"
+  | "hardware.subtitle"
+  | "hardware.temperature"
+  | "hardware.humidity"
+  | "hardware.online"
+  | "hardware.offline"
+  | "hardware.source"
+  | "hardware.updated"
+  | "hardware.saveToDb"
+  | "hardware.savedOk"
+  | "hardware.error"
+  | "hardware.hint"
+  | "hardware.greenhouse"
+  | "hardware.greenhouseN"
+  | "users.syncTeam"
+  | "users.syncDone"
   | "api.unauthorized"
   | "api.forbidden"
   | "api.badData"
@@ -622,7 +638,7 @@ const RU: Record<I18nKey, string> = {
   "nav.ai": "ИИ-ассистент",
   "nav.sensorEntry": "Ввод датчиков",
   "nav.users": "Пользователи",
-  "nav.db": "База данных",
+  "nav.db": "Живой датчик",
   "dashboard.kpi.activeGreenhouses": "Активные теплицы",
   "dashboard.kpi.avgTemp": "Средняя температура",
   "dashboard.kpi.cultures": "Культур выращивается",
@@ -1126,8 +1142,27 @@ const RU: Record<I18nKey, string> = {
   "val.humidityMinLessMax": "humidity_min должен быть меньше humidity_max",
   "val.humidityRange": "Влажность должна быть 0–100",
   "val.co2Min": "CO2 должен быть ≥ 0",
-  "db.title": "Просмотр базы данных",
-  "db.subtitle": "Только для администратора. Просмотр таблиц SQLite.",
+  "db.title": "Живой датчик ESP32",
+  "db.subtitle":
+    "Показания с вашего контроллера в реальном времени. Для защиты: подключите ESP32 к той же Wi‑Fi сети, что и компьютер с системой.",
+  "hardware.title": "Температура и влажность с датчика",
+  "hardware.subtitle":
+    "Данные приходят с платы ESP32 по Wi‑Fi. Обновление каждые 2–3 секунды. Можно записать замер в базу — он появится в «Параметрах» и отчётах.",
+  "hardware.temperature": "Температура",
+  "hardware.humidity": "Влажность",
+  "hardware.online": "Датчик на связи",
+  "hardware.offline": "Нет связи",
+  "hardware.source": "Адрес контроллера",
+  "hardware.updated": "Последнее обновление",
+  "hardware.saveToDb": "Записать в базу",
+  "hardware.savedOk": "Показание сохранено в базе данных",
+  "hardware.error": "Не удалось получить данные с контроллера",
+  "hardware.hint":
+    "Если статус «Нет связи»: проверьте, что ESP32 включён, в той же сети Wi‑Fi, и IP верный (по умолчанию 10.233.53.143). В `.env.local` можно задать `ARDUINO_SENSOR_URL=http://…/`.",
+  "hardware.greenhouse": "Теплица для записи",
+  "hardware.greenhouseN": "Теплица №",
+  "users.syncTeam": "Создать аккаунты команды",
+  "users.syncDone": "Аккаунты команды уже в системе",
   "db.table": "Таблица",
   "db.columns": "Колонки",
   "db.fk": "Связи (FK)",
@@ -1604,8 +1639,9 @@ const KK: Record<I18nKey, string> = {
   "val.humidityMinLessMax": "min ылғалдылық max-тан кіші болуы керек",
   "val.humidityRange": "Ылғалдылық 0–100 болуы керек",
   "val.co2Min": "CO2 ≥ 0 болуы керек",
-  "db.title": "Деректер базасын қарау",
-  "db.subtitle": "Тек әкімшіге. SQLite кестелерін көру (read-only).",
+  "db.title": "Живой датчик ESP32",
+  "db.subtitle":
+    "Показания с вашего контроллера в реальном времени. Для защиты: подключите ESP32 к той же Wi‑Fi сети, что и компьютер с системой.",
   "db.table": "Кесте",
   "db.columns": "Бағандар",
   "db.fk": "Байланыстар (FK)",
@@ -1767,6 +1803,24 @@ const KK: Record<I18nKey, string> = {
   "ai.training.guide.reports.how": "Выберите период и теплицу. Экспортируйте PDF для совещания или отчёта руководству.",
   "ai.training.guide.ai.purpose": "Прогноз, советы, карта рисков, анализ фото и план недели.",
   "ai.training.guide.ai.how": "Переключайте вкладки вверху. Внизу каждой вкладки — простое объяснение, как считается результат.",
+  "hardware.title": "Температура и влажность с датчика",
+  "hardware.subtitle":
+    "Данные приходят с платы ESP32 по Wi‑Fi. Обновление каждые 2–3 секунды. Можно записать замер в базу — он появится в «Параметрах» и отчётах.",
+  "hardware.temperature": "Температура",
+  "hardware.humidity": "Влажность",
+  "hardware.online": "Датчик на связи",
+  "hardware.offline": "Нет связи",
+  "hardware.source": "Адрес контроллера",
+  "hardware.updated": "Последнее обновление",
+  "hardware.saveToDb": "Записать в базу",
+  "hardware.savedOk": "Показание сохранено в базе данных",
+  "hardware.error": "Не удалось получить данные с контроллера",
+  "hardware.hint":
+    "Если статус «Нет связи»: проверьте, что ESP32 включён, в той же сети Wi‑Fi, и IP верный (по умолчанию 10.233.53.143). В `.env.local` можно задать `ARDUINO_SENSOR_URL=http://…/`.",
+  "hardware.greenhouse": "Теплица для записи",
+  "hardware.greenhouseN": "Теплица №",
+  "users.syncTeam": "Создать аккаунты команды",
+  "users.syncDone": "Аккаунты команды уже в системе",
 };
 
 export function t(locale: Locale, key: I18nKey): string {

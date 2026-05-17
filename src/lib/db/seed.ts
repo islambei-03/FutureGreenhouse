@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import type { Pool } from "pg";
 import { createDbAdapter, type DbAdapter } from "@/lib/db/adapter";
+import { syncTeamAll, TEAM_WORKERS } from "@/lib/team-sync";
 
 const SALT_ROUNDS = 10;
 
@@ -18,13 +19,6 @@ const seedUsers: SeedUser[] = [
   { full_name: "София Нурбекова", login: "sofia", password: "sofia123", role: "worker" },
   { full_name: "Мадина Ораз", login: "madina", password: "madina123", role: "director" },
 ];
-
-const TEAM_USERS: SeedUser[] = seedUsers.filter((u) => u.login !== "admin");
-
-const TEAM_WORKERS = [
-  { full_name: "Руслан Карабаев", greenhouseIndex: 0, phone: "+7 701 100 01 01" },
-  { full_name: "София Нурбекова", greenhouseIndex: 1, phone: "+7 701 100 01 02" },
-] as const;
 
 async function withTransaction(pool: Pool, fn: (a: DbAdapter) => Promise<void>) {
   const c = await pool.connect();
@@ -147,68 +141,12 @@ export async function cleanupDemoCultures(pool: Pool) {
   `);
 }
 
-async function ensureTeamUsers(pool: Pool, a: DbAdapter) {
-  const insert = a.prepare(`
-    INSERT INTO users (full_name, login, password_hash, role, is_active)
-    VALUES (@full_name, @login, @password_hash, @role, 1)
-    ON CONFLICT (login) DO UPDATE SET
-      full_name = excluded.full_name,
-      role = excluded.role,
-      is_active = 1
-  `);
-
-  for (const u of TEAM_USERS) {
-    const exists = (await a.prepare("SELECT id FROM users WHERE login = ?").get(u.login)) as { id: number } | undefined;
-    if (!exists) {
-      const password_hash = bcrypt.hashSync(u.password, SALT_ROUNDS);
-      await insert.run({ full_name: u.full_name, login: u.login, password_hash, role: u.role });
-    } else {
-      await a.prepare("UPDATE users SET full_name = ?, role = ?, is_active = 1 WHERE login = ?").run(
-        u.full_name,
-        u.role,
-        u.login,
-      );
-    }
-  }
-
-  const workers = (await a
-    .prepare(
-      "SELECT id, full_name FROM employees WHERE position = 'Рабочий' AND full_name IN ('Руслан Карабаев', 'София Нурбекова') ORDER BY greenhouse_id ASC, id ASC",
-    )
-    .all()) as Array<{ id: number; full_name: string }>;
-
-  const ruslan = workers.find((w) => w.full_name.includes("Руслан"));
-  const sofia = workers.find((w) => w.full_name.includes("София"));
-  if (ruslan) await a.prepare("UPDATE users SET employee_id = ? WHERE login = 'ruslan'").run(ruslan.id);
-  if (sofia) await a.prepare("UPDATE users SET employee_id = ? WHERE login = 'sofia'").run(sofia.id);
-}
-
-async function syncTeamWorkers(a: DbAdapter) {
-  const ghRows = (await a.prepare("SELECT id FROM greenhouses ORDER BY id ASC LIMIT 2").all()) as Array<{ id: number }>;
-  const insert = a.prepare(`
-    INSERT INTO employees (full_name, position, greenhouse_id, phone, status, notes)
-    VALUES (@full_name, 'Рабочий', @greenhouse_id, @phone, 'на смене', '')
-  `);
-  for (let i = 0; i < TEAM_WORKERS.length; i++) {
-    const w = TEAM_WORKERS[i]!;
-    const ghId = ghRows[i]?.id;
-    if (!ghId) continue;
-    const exists = (await a.prepare("SELECT id FROM employees WHERE full_name = ?").get(w.full_name)) as
-      | { id: number }
-      | undefined;
-    if (!exists) {
-      await insert.run({ full_name: w.full_name, greenhouse_id: ghId, phone: w.phone });
-    }
-  }
-}
-
 export async function seedAll(pool: Pool) {
   const a = createDbAdapter(pool);
   await seedUsersIfEmpty(pool, a);
   await seedDomainIfEmpty(pool, a);
-  await syncTeamWorkers(a);
   await cleanupDemoCultures(pool);
-  await ensureTeamUsers(pool, a);
+  await syncTeamAll(pool);
   await backfillRichDemoData(pool);
 }
 

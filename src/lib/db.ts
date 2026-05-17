@@ -91,6 +91,10 @@ export type AppDb = DbAdapter & {
   transaction: <T>(fn: (tx: DbAdapter) => Promise<T>) => Promise<T>;
 };
 
+export function getDbPool() {
+  return getPool();
+}
+
 export function db(): AppDb {
   const pool = getPool();
   const base = createDbAdapter(pool, () => ensureDbReady());

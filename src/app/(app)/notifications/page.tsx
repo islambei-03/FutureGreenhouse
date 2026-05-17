@@ -41,23 +41,31 @@ function typeKey(type: NotificationType) {
 export default function NotificationsPage() {
   const { t: tr } = useI18n();
   const [items, setItems] = useState<NotificationRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const unread = useMemo(() => items.filter((i) => !i.is_read).length, [items]);
 
   async function load() {
-    const res = await fetch("/api/notifications", { cache: "no-store" });
-    const data = (await res.json().catch(() => null)) as null | { ok: boolean; notifications: NotificationRow[] };
-    if (data?.ok) setItems(data.notifications);
+    try {
+      const res = await fetch("/api/notifications", { cache: "no-store" });
+      const data = (await res.json().catch(() => null)) as null | { ok: boolean; notifications: NotificationRow[] };
+      if (data?.ok) {
+        setItems(data.notifications);
+        setLoadError(null);
+      } else {
+        setLoadError(tr("error.network"));
+      }
+    } catch {
+      setLoadError(tr("error.network"));
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      void load();
-    }, 0);
-    const id = setInterval(load, 15_000);
-    return () => {
-      clearTimeout(t);
-      clearInterval(id);
-    };
+    void load();
+    const id = setInterval(() => void load(), 15_000);
+    return () => clearInterval(id);
   }, []);
 
   async function markAll() {
@@ -95,54 +103,62 @@ export default function NotificationsPage() {
         </div>
       </Card>
 
+      {loadError ? (
+        <Card className="p-6 text-sm text-red-200 border border-red-500/30 bg-red-500/10">{loadError}</Card>
+      ) : null}
+
       <div className="space-y-3">
-        {!items.length ? (
+        {loading ? (
           <Card className="p-6">
             <div className="h-4 w-44 rounded-lg fg-skeleton" />
             <div className="mt-4 space-y-3">
-              {Array.from({ length: 6 }).map((_, i) => (
+              {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="h-20 rounded-2xl fg-skeleton" />
               ))}
             </div>
           </Card>
         ) : null}
-        {items.map((n) => (
-          <button
-            key={n.id}
-            type="button"
-            onClick={() => (!n.is_read ? markOne(n.id) : null)}
-            className={[
-              "w-full text-left rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] overflow-hidden transition",
-              "hover:bg-white/5",
-              n.is_read ? "opacity-85" : "",
-            ].join(" ")}
-          >
-            <div className="flex">
-              <div className={`w-1.5 ${typeColor(n.type)}`} />
-              <div className="p-5 flex-1">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0 flex items-center gap-3">
-                    <div className="font-semibold truncate">{n.title}</div>
-                      <Badge tone={toneByType(n.type)}>{tr(typeKey(n.type))}</Badge>
+        {!loading && !items.length ? (
+          <Card className="p-6 text-sm text-[var(--muted)]">{tr("notifications.empty")}</Card>
+        ) : null}
+        {!loading
+          ? items.map((n) => (
+              <button
+                key={n.id}
+                type="button"
+                onClick={() => (!n.is_read ? markOne(n.id) : null)}
+                className={[
+                  "w-full text-left rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow)] overflow-hidden transition",
+                  "hover:bg-white/5",
+                  n.is_read ? "opacity-85" : "",
+                ].join(" ")}
+              >
+                <div className="flex">
+                  <div className={`w-1.5 ${typeColor(n.type)}`} />
+                  <div className="p-5 flex-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex items-center gap-3">
+                        <div className="font-semibold truncate">{n.title}</div>
+                        <Badge tone={toneByType(n.type)}>{tr(typeKey(n.type))}</Badge>
+                        {!n.is_read ? (
+                          <span className="inline-flex items-center gap-2 text-xs text-[var(--muted)]">
+                            <span className="inline-block size-2 rounded-full bg-[color:var(--accent)]" />
+                            {tr("notifications.new")}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="text-xs text-[var(--muted)]">{n.created_at}</div>
+                    </div>
+                    <div className="mt-2 text-sm text-[var(--muted)]">{n.message}</div>
                     {!n.is_read ? (
-                      <span className="inline-flex items-center gap-2 text-xs text-[var(--muted)]">
-                        <span className="inline-block size-2 rounded-full bg-[color:var(--accent)]" />
-                        {tr("notifications.new")}
-                      </span>
+                      <div className="mt-3 text-xs text-[var(--muted)]">{tr("notifications.clickToMarkRead")}</div>
                     ) : null}
                   </div>
-                  <div className="text-xs text-[var(--muted)]">{n.created_at}</div>
                 </div>
-                <div className="mt-2 text-sm text-[var(--muted)]">{n.message}</div>
-                {!n.is_read ? (
-                  <div className="mt-3 text-xs text-[var(--muted)]">{tr("notifications.clickToMarkRead")}</div>
-                ) : null}
-              </div>
-            </div>
-          </button>
-        ))}
+              </button>
+            ))
+          : null}
       </div>
     </main>
   );
 }
-

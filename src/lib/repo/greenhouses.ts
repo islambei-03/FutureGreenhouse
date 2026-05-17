@@ -49,6 +49,8 @@ export async function listGreenhousesWithStatus(): Promise<GreenhouseRow[]> {
         SELECT string_agg(c.name, '||' ORDER BY c.id)
         FROM cultures c
         WHERE c.greenhouse_id = g.id
+          AND (c.notes IS NULL OR c.notes NOT IN ('demo', 'demo-rich'))
+          AND c.name NOT LIKE 'Демо-%'
       ) as culture_names,
       ls.temperature,
       ls.humidity,

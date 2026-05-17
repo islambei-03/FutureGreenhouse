@@ -438,6 +438,44 @@ export type I18nKey =
   | "ai.training.s4.a2"
   | "ai.training.s5.title"
   | "ai.training.s5.text"
+  | "ai.training.guide.ai.how"
+  | "ai.training.guide.ai.purpose"
+  | "ai.training.guide.reports.how"
+  | "ai.training.guide.reports.purpose"
+  | "ai.training.guide.employees.how"
+  | "ai.training.guide.employees.purpose"
+  | "ai.training.guide.sensorEntry.how"
+  | "ai.training.guide.sensorEntry.purpose"
+  | "ai.training.guide.notifications.how"
+  | "ai.training.guide.notifications.purpose"
+  | "ai.training.guide.tasks.tip"
+  | "ai.training.guide.tasks.how"
+  | "ai.training.guide.tasks.purpose"
+  | "ai.training.guide.watering.how"
+  | "ai.training.guide.watering.purpose"
+  | "ai.training.guide.parameters.how"
+  | "ai.training.guide.parameters.purpose"
+  | "ai.training.guide.cultures.how"
+  | "ai.training.guide.cultures.purpose"
+  | "ai.training.guide.greenhouses.how"
+  | "ai.training.guide.greenhouses.purpose"
+  | "ai.training.guide.dashboard.how"
+  | "ai.training.guide.dashboard.purpose"
+  | "ai.anomaly.legendAnomaly"
+  | "ai.training.back"
+  | "ai.training.howTo"
+  | "ai.training.forWhat"
+  | "ai.training.module"
+  | "ai.training.completeHint"
+  | "ai.training.pickRoleAgain"
+  | "ai.training.roleAgronomistDesc"
+  | "ai.training.roleAgronomist"
+  | "ai.training.roleWorkerDesc"
+  | "ai.training.roleWorker"
+  | "ai.training.pickRole"
+  | "cultures.hint.body"
+  | "cultures.hint.title"
+  | "notifications.empty"
   | "ai.info.dataLabel"
   | "ai.info.chat.title"
   | "ai.info.chat.body"
@@ -943,29 +981,29 @@ const RU: Record<I18nKey, string> = {
   "ai.planner.empty": "Нажмите «Составить план», чтобы сгенерировать расписание.",
   "ai.planner.failed": "Не удалось составить план",
   "tasks.markDone": "Отметить выполненной",
-  "ai.info.training.data": "Статический контент в приложении (i18n).",
-  "ai.info.training.body": "Локальный сценарий онбординга: шаги и вопросы без отправки в OpenAI. Для новых операторов.",
-  "ai.info.training.title": "Режим обучения",
-  "ai.info.planner.data": "tasks, watering_schedule, greenhouses; сохранение в app_settings (ai_week_plan).",
-  "ai.info.planner.body": "GPT-4o-mini строит план на 7 дней по открытым задачам и поливам. Можно редактировать и сохранить.",
+  "ai.info.training.data": "Тексты подсказок в приложении (не требует интернета).",
+  "ai.info.training.body": "Пошаговый тур по разделам меню в зависимости от роли: оператор или агроном. Без тестов на память — только что за что отвечает и как пользоваться.",
+  "ai.info.training.title": "Инструкция для новых сотрудников",
+  "ai.info.planner.data": "Задачи, полив и список теплиц.",
+  "ai.info.planner.body": "ИИ предлагает план работ на 7 дней с учётом открытых задач и расписания полива. План можно отредактировать и сохранить в системе.",
   "ai.info.planner.title": "Как работает планировщик",
-  "ai.info.vision.data": "Загрузка файла → /api/ai/vision → OpenAI gpt-4o (не сохраняется в БД).",
-  "ai.info.vision.body": "Изображение отправляется в GPT-4o Vision. Подходит растение, плод, лист, урожай — модель опишет состояние и даст рекомендации.",
+  "ai.info.vision.data": "Только загруженное изображение (без сохранения в БД).",
+  "ai.info.vision.body": "Вы загружаете снимок растения, листа или урожая. Фото отправляется в GPT-4o Vision: модель опишет состояние и предложит, что проверить или сделать. Снимок в базе не хранится.",
   "ai.info.vision.title": "Как работает анализ фото",
-  "ai.info.recommendations.data": "Датчики, tasks, watering_schedule, greenhouses.",
-  "ai.info.recommendations.body": "Правила на сервере: отклонения датчиков, просрочки, статус теплицы. Обновляются при открытии вкладки.",
+  "ai.info.recommendations.data": "Датчики, задачи, полив и статусы теплиц.",
+  "ai.info.recommendations.body": "Список подсказок строится по правилам: температура или влажность вне нормы, просроченные задачи, статус теплицы. Обновляется при открытии вкладки.",
   "ai.info.recommendations.title": "Как работают советы",
-  "ai.info.anomaly.data": "sensor_data за 7/14 дней по выбранной теплице.",
-  "ai.info.anomaly.body": "Z-score по истории и порог резкого скачка между соседними точками. Без вызова OpenAI — быстрый математический анализ.",
-  "ai.info.anomaly.title": "Как работает детектор",
-  "ai.info.forecast.data": "sensor_data за 7 дней; нормы temp/humidity из greenhouses.",
-  "ai.info.forecast.body": "Линейная экстраполяция по 7 дням истории датчиков + зоны риска по нормам теплицы.",
+  "ai.info.anomaly.data": "История датчиков за 7 или 14 дней по выбранной теплице.",
+  "ai.info.anomaly.body": "Программа сравнивает каждое новое замерение с обычным уровнем за выбранный период. Резкий скачок или сильное отклонение от привычного — отмечается красной точкой. OpenAI здесь не используется — расчёт идёт на сервере по вашим данным.",
+  "ai.info.anomaly.title": "Как работает поиск аномалий",
+  "ai.info.forecast.data": "Показания датчиков за 7 дней и допустимые нормы из карточки теплицы.",
+  "ai.info.forecast.body": "Система смотрит, как менялись температура и влажность за последние 7 дней, и продолжает эту тенденцию на ближайшие дни. Если прогноз выходит за зелёную зону норм теплицы — показываем предупреждение. Это ориентир для агронома, а не точный прогноз погоды.",
   "ai.info.forecast.title": "Как работает прогноз",
-  "ai.info.map.data": "computeGreenhouseHealth(); при клике — buildSingleGreenhouseContext + gpt-4o-mini.",
-  "ai.info.map.body": "Цвет блока = оценка здоровья 0–100% (датчики, просроченные задачи, полив). Клик — краткая AI-сводка по теплице.",
+  "ai.info.map.data": "Текущие показания, задачи и полив по каждой теплице.",
+  "ai.info.map.body": "Цвет блока показывает «здоровье» теплицы от 0 до 100%: учитываются датчики, просроченные задачи и полив. Нажмите на блок — получите краткую текстовую сводку от ИИ.",
   "ai.info.map.title": "Как работает карта",
-  "ai.info.chat.data": "Таблицы greenhouses, sensor_data, tasks, watering_schedule, cultures; OPENAI_API_KEY.",
-  "ai.info.chat.body": "GPT-4o-mini отвечает с учётом текущих показаний теплиц, задач и полива из базы. История сохраняется в ai_chat_history.",
+  "ai.info.chat.data": "Теплицы, датчики, задачи, полив и культуры из базы данных.",
+  "ai.info.chat.body": "Вы задаёте вопрос обычными словами. Ассистент подставляет актуальные данные из базы: теплицы, датчики, задачи, полив. Ответ формирует нейросеть GPT-4o-mini; история диалога сохраняется в системе.",
   "ai.info.chat.title": "Как работает чат",
   "ai.info.dataLabel": "Источник данных",
   "ai.training.s5.text": "Карта теплиц, прогноз, анализ фото и план недели — во вкладке «ИИ». Внизу каждой вкладки есть пояснение.",
@@ -987,6 +1025,44 @@ const RU: Record<I18nKey, string> = {
   "ai.training.s2.text": "На странице «Параметры» смотрите графики температуры и влажности в реальном времени.",
   "ai.training.s2.title": "Параметры",
   "ai.training.s1.text": "Future Greenhouse объединяет датчики, задачи, полив и ИИ. Вы будете отвечать за свою теплицу.",
+  "notifications.empty": "Новых уведомлений нет. Сообщения о задачах и датчиках появятся здесь автоматически.",
+  "cultures.hint.title": "Откуда берутся данные в таблице",
+  "cultures.hint.body": "Каждая строка — культура в конкретной теплице и секции. Посев и сбор — даты, которые вносит агроном. Нормы температуры и влажности — целевые условия для этой культуры. Стадия (посев → рост → цветение → плодоношение → сбор) задаётся вручную; полоска показывает примерный прогресс по этапам. В карточке теплицы отображаются те же названия культур из этой таблицы.",
+  "ai.training.pickRole": "Выберите вашу должность — покажем только те разделы, которые вам доступны:",
+  "ai.training.roleWorker": "Оператор теплицы",
+  "ai.training.roleWorkerDesc": "Полив, задачи, показания датчиков, ручной ввод при сбое датчиков.",
+  "ai.training.roleAgronomist": "Агроном",
+  "ai.training.roleAgronomistDesc": "Культуры, отчёты, сотрудники, ИИ-анализ и настройка норм.",
+  "ai.training.pickRoleAgain": "Сменить роль",
+  "ai.training.completeHint": "Можно вернуться в любой раздел меню слева. При необходимости пройдите инструкцию снова.",
+  "ai.training.module": "Раздел системы",
+  "ai.training.forWhat": "Зачем нужен",
+  "ai.training.howTo": "Как пользоваться",
+  "ai.training.back": "Назад",
+  "ai.anomaly.legendAnomaly": "Красная точка на графике — аномалия",
+  "ai.training.guide.dashboard.purpose": "Общая картина по всем теплицам: что в норме, где есть тревоги.",
+  "ai.training.guide.dashboard.how": "Откройте главную после входа. Смотрите карточки теплиц и блок рекомендаций — с чего начать смену.",
+  "ai.training.guide.greenhouses.purpose": "Список теплиц, ответственный оператор и что сейчас растёт.",
+  "ai.training.guide.greenhouses.how": "Выберите теплицу. В карточке видны культуры из раздела «Культуры», последние показания и ближайший полив.",
+  "ai.training.guide.cultures.purpose": "Учёт посевов: что, где и на какой стадии роста.",
+  "ai.training.guide.cultures.how": "Добавляйте или редактируйте культуру: теплица, секция, даты посева и сбора, нормы и стадия. Эти же названия видны в карточке теплицы.",
+  "ai.training.guide.parameters.purpose": "Графики температуры, влажности и CO₂ с датчиков.",
+  "ai.training.guide.parameters.how": "Выберите теплицу и период. Если линия выходит за зелёную зону — проверьте вентиляцию или полив.",
+  "ai.training.guide.watering.purpose": "Расписание полива и отметка о выполнении.",
+  "ai.training.guide.watering.how": "Смотрите ближайшие поливы. После полива отметьте выполнение — так агроном видит факт в отчётах.",
+  "ai.training.guide.tasks.purpose": "Поручения на смену: что сделать и к какому сроку.",
+  "ai.training.guide.tasks.how": "Откройте список задач. Нажмите «Отметить выполненной», когда работа сделана.",
+  "ai.training.guide.tasks.tip": "О новой задаче придёт уведомление в колокольчик.",
+  "ai.training.guide.notifications.purpose": "Сообщения о задачах, датчиках и важных событиях.",
+  "ai.training.guide.notifications.how": "Красная полоска слева — тревога. Нажмите на непрочитанное, чтобы отметить прочитанным.",
+  "ai.training.guide.sensorEntry.purpose": "Ручной ввод температуры и влажности, если датчик не работает.",
+  "ai.training.guide.sensorEntry.how": "Выберите теплицу, введите показания и сохраните. Данные попадут в графики как обычные замеры.",
+  "ai.training.guide.employees.purpose": "Операторы теплиц: кто за какую теплицу отвечает.",
+  "ai.training.guide.employees.how": "Проверяйте контакты и привязку к теплице. Оператор видит в системе только свою зону.",
+  "ai.training.guide.reports.purpose": "Сводки за период: урожайность, полив, отклонения.",
+  "ai.training.guide.reports.how": "Выберите период и теплицу. Экспортируйте PDF для совещания или отчёта руководству.",
+  "ai.training.guide.ai.purpose": "Прогноз, советы, карта рисков, анализ фото и план недели.",
+  "ai.training.guide.ai.how": "Переключайте вкладки вверху. Внизу каждой вкладки — простое объяснение, как считается результат.",
   "ai.training.s1.title": "Добро пожаловать",
   "ai.training.wrong": "Не совсем. Прочитайте подсказку ещё раз.",
   "ai.training.correct": "Верно! Можно идти дальше.",
@@ -1326,7 +1402,7 @@ const KK: Record<I18nKey, string> = {
   "reports.table.harvested": "Өнім (партия)",
   "reports.tab.overview": "Шолу",
   "reports.overview.hint":
-    "KPI және негізгі графиктер. PDF/Excel экспорты — жоғарғы оң жақта.",
+    "На вкладке «Графики» — урожай, вода, задачи, климат и ещё 6 диаграмм аналитики. На «Данные» — таблицы.",
   "reports.tab.charts": "Графиктер",
   "reports.tab.data": "Деректер",
   "reports.chart.tasksShare": "Тапсырмалар: орындалған / орындалмаған",
@@ -1653,6 +1729,44 @@ const KK: Record<I18nKey, string> = {
   "ai.vision.hint": "Можно загружать растение, плод, лист, урожай или проблему на фото.",
   "ai.tab.training": "Обучение",
   "ai.tab.anomaly": "Аномалии",
+  "notifications.empty": "Новых уведомлений нет. Сообщения о задачах и датчиках появятся здесь автоматически.",
+  "cultures.hint.title": "Откуда берутся данные в таблице",
+  "cultures.hint.body": "Каждая строка — культура в конкретной теплице и секции. Посев и сбор — даты, которые вносит агроном. Нормы температуры и влажности — целевые условия для этой культуры. Стадия (посев → рост → цветение → плодоношение → сбор) задаётся вручную; полоска показывает примерный прогресс по этапам. В карточке теплицы отображаются те же названия культур из этой таблицы.",
+  "ai.training.pickRole": "Выберите вашу должность — покажем только те разделы, которые вам доступны:",
+  "ai.training.roleWorker": "Оператор теплицы",
+  "ai.training.roleWorkerDesc": "Полив, задачи, показания датчиков, ручной ввод при сбое датчиков.",
+  "ai.training.roleAgronomist": "Агроном",
+  "ai.training.roleAgronomistDesc": "Культуры, отчёты, сотрудники, ИИ-анализ и настройка норм.",
+  "ai.training.pickRoleAgain": "Сменить роль",
+  "ai.training.completeHint": "Можно вернуться в любой раздел меню слева. При необходимости пройдите инструкцию снова.",
+  "ai.training.module": "Раздел системы",
+  "ai.training.forWhat": "Зачем нужен",
+  "ai.training.howTo": "Как пользоваться",
+  "ai.training.back": "Назад",
+  "ai.anomaly.legendAnomaly": "Красная точка на графике — аномалия",
+  "ai.training.guide.dashboard.purpose": "Общая картина по всем теплицам: что в норме, где есть тревоги.",
+  "ai.training.guide.dashboard.how": "Откройте главную после входа. Смотрите карточки теплиц и блок рекомендаций — с чего начать смену.",
+  "ai.training.guide.greenhouses.purpose": "Список теплиц, ответственный оператор и что сейчас растёт.",
+  "ai.training.guide.greenhouses.how": "Выберите теплицу. В карточке видны культуры из раздела «Культуры», последние показания и ближайший полив.",
+  "ai.training.guide.cultures.purpose": "Учёт посевов: что, где и на какой стадии роста.",
+  "ai.training.guide.cultures.how": "Добавляйте или редактируйте культуру: теплица, секция, даты посева и сбора, нормы и стадия. Эти же названия видны в карточке теплицы.",
+  "ai.training.guide.parameters.purpose": "Графики температуры, влажности и CO₂ с датчиков.",
+  "ai.training.guide.parameters.how": "Выберите теплицу и период. Если линия выходит за зелёную зону — проверьте вентиляцию или полив.",
+  "ai.training.guide.watering.purpose": "Расписание полива и отметка о выполнении.",
+  "ai.training.guide.watering.how": "Смотрите ближайшие поливы. После полива отметьте выполнение — так агроном видит факт в отчётах.",
+  "ai.training.guide.tasks.purpose": "Поручения на смену: что сделать и к какому сроку.",
+  "ai.training.guide.tasks.how": "Откройте список задач. Нажмите «Отметить выполненной», когда работа сделана.",
+  "ai.training.guide.tasks.tip": "О новой задаче придёт уведомление в колокольчик.",
+  "ai.training.guide.notifications.purpose": "Сообщения о задачах, датчиках и важных событиях.",
+  "ai.training.guide.notifications.how": "Красная полоска слева — тревога. Нажмите на непрочитанное, чтобы отметить прочитанным.",
+  "ai.training.guide.sensorEntry.purpose": "Ручной ввод температуры и влажности, если датчик не работает.",
+  "ai.training.guide.sensorEntry.how": "Выберите теплицу, введите показания и сохраните. Данные попадут в графики как обычные замеры.",
+  "ai.training.guide.employees.purpose": "Операторы теплиц: кто за какую теплицу отвечает.",
+  "ai.training.guide.employees.how": "Проверяйте контакты и привязку к теплице. Оператор видит в системе только свою зону.",
+  "ai.training.guide.reports.purpose": "Сводки за период: урожайность, полив, отклонения.",
+  "ai.training.guide.reports.how": "Выберите период и теплицу. Экспортируйте PDF для совещания или отчёта руководству.",
+  "ai.training.guide.ai.purpose": "Прогноз, советы, карта рисков, анализ фото и план недели.",
+  "ai.training.guide.ai.how": "Переключайте вкладки вверху. Внизу каждой вкладки — простое объяснение, как считается результат.",
 };
 
 export function t(locale: Locale, key: I18nKey): string {

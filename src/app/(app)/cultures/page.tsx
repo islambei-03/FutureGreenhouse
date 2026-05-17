@@ -8,6 +8,7 @@ import RippleButton from "@/components/ui/RippleButton";
 import AppModal from "@/components/ui/AppModal";
 import TableScroll from "@/components/ui/TableScroll";
 import { useI18n } from "@/components/i18n/I18nContext";
+import { formatDisplayDate } from "@/lib/format";
 
 type GreenhouseOption = { id: number; name: string };
 
@@ -223,6 +224,10 @@ export default function CulturesPage() {
             <div className="text-sm text-[var(--muted)] mt-1">
               {tr("cultures.subtitle")}
             </div>
+            <p className="text-sm text-[var(--muted)] mt-3 leading-relaxed border-t border-[var(--border)] pt-3">
+              <span className="font-medium text-[var(--text)]">{tr("cultures.hint.title")}: </span>
+              {tr("cultures.hint.body")}
+            </p>
           </div>
           {canCrud(role) ? (
             <RippleButton onClick={openCreate} className="w-full shrink-0 px-4 py-2.5 sm:w-auto">
@@ -281,8 +286,8 @@ export default function CulturesPage() {
                   </td>
                   <td className="p-4 text-[var(--muted)]">{r.greenhouse_name}</td>
                   <td className="p-4 text-[var(--muted)]">{r.section ?? "—"}</td>
-                  <td className="p-4 text-[var(--muted)]">{r.planted_date ?? "—"}</td>
-                  <td className="p-4 text-[var(--muted)]">{r.harvest_date ?? "—"}</td>
+                  <td className="p-4 text-[var(--muted)]">{formatDisplayDate(r.planted_date)}</td>
+                  <td className="p-4 text-[var(--muted)]">{formatDisplayDate(r.harvest_date)}</td>
                   <td className="p-4 text-[var(--muted)]">
                     {r.temp_norm != null ? `${r.temp_norm}°C` : "—"} ·{" "}
                     {r.humidity_norm != null ? `${r.humidity_norm}%` : "—"}

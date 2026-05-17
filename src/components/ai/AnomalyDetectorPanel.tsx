@@ -9,6 +9,7 @@ import {
   LineElement,
   Tooltip,
   Legend,
+  type Chart,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 import { useI18n } from "@/components/i18n/I18nContext";
@@ -93,7 +94,34 @@ export default function AnomalyDetectorPanel() {
       maintainAspectRatio: false,
       interaction: { mode: "index" as const, intersect: false },
       plugins: {
-        legend: { labels: { color: "#94a3b8" } },
+        legend: {
+          labels: {
+            color: "#94a3b8",
+            usePointStyle: true,
+            generateLabels(chart: Chart) {
+              return [
+                {
+                  text: t("ai.anomaly.chartTemp"),
+                  fillStyle: "rgb(56, 189, 248)",
+                  strokeStyle: "rgb(56, 189, 248)",
+                  fontColor: "#94a3b8",
+                  lineWidth: 0,
+                  hidden: false,
+                  datasetIndex: 0,
+                },
+                {
+                  text: t("ai.anomaly.chartHum"),
+                  fillStyle: "rgb(52, 211, 153)",
+                  strokeStyle: "rgb(52, 211, 153)",
+                  fontColor: "#94a3b8",
+                  lineWidth: 0,
+                  hidden: false,
+                  datasetIndex: 1,
+                },
+              ];
+            },
+          },
+        },
         tooltip: {
           callbacks: {
             afterBody: (items: { dataIndex: number }[]) => {

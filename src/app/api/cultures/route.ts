@@ -31,7 +31,10 @@ export async function GET(req: Request) {
   const greenhouseId = url.searchParams.get("greenhouse_id");
   const q = (url.searchParams.get("q") ?? "").trim();
 
-  const where: string[] = [];
+  const where: string[] = [
+    "(c.notes IS NULL OR c.notes NOT IN ('demo', 'demo-rich'))",
+    "c.name NOT LIKE 'Демо-%'",
+  ];
   const params: Record<string, unknown> = {};
 
   if (greenhouseId) {

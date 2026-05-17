@@ -638,7 +638,7 @@ const RU: Record<I18nKey, string> = {
   "nav.ai": "ИИ-ассистент",
   "nav.sensorEntry": "Ввод датчиков",
   "nav.users": "Пользователи",
-  "nav.db": "Живой датчик",
+  "nav.db": "База данных",
   "dashboard.kpi.activeGreenhouses": "Активные теплицы",
   "dashboard.kpi.avgTemp": "Средняя температура",
   "dashboard.kpi.cultures": "Культур выращивается",
@@ -1142,9 +1142,8 @@ const RU: Record<I18nKey, string> = {
   "val.humidityMinLessMax": "humidity_min должен быть меньше humidity_max",
   "val.humidityRange": "Влажность должна быть 0–100",
   "val.co2Min": "CO2 должен быть ≥ 0",
-  "db.title": "Живой датчик ESP32",
-  "db.subtitle":
-    "Показания с вашего контроллера в реальном времени. Для защиты: подключите ESP32 к той же Wi‑Fi сети, что и компьютер с системой.",
+  "db.title": "Просмотр базы данных",
+  "db.subtitle": "Только для администратора. Просмотр и редактирование таблиц PostgreSQL.",
   "hardware.title": "Температура и влажность с датчика",
   "hardware.subtitle":
     "Данные приходят с платы ESP32 по Wi‑Fi. Обновление каждые 2–3 секунды. Можно записать замер в базу — он появится в «Параметрах» и отчётах.",
@@ -1639,9 +1638,8 @@ const KK: Record<I18nKey, string> = {
   "val.humidityMinLessMax": "min ылғалдылық max-тан кіші болуы керек",
   "val.humidityRange": "Ылғалдылық 0–100 болуы керек",
   "val.co2Min": "CO2 ≥ 0 болуы керек",
-  "db.title": "Живой датчик ESP32",
-  "db.subtitle":
-    "Показания с вашего контроллера в реальном времени. Для защиты: подключите ESP32 к той же Wi‑Fi сети, что и компьютер с системой.",
+  "db.title": "Деректер базасын қарау",
+  "db.subtitle": "Тек әкімшіге. PostgreSQL кестелерін қарау және өңдеу.",
   "db.table": "Кесте",
   "db.columns": "Бағандар",
   "db.fk": "Байланыстар (FK)",

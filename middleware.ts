@@ -8,13 +8,17 @@ const PUBLIC_PATHS = [
   "/api/auth/logout",
 ];
 
-function isPublicPath(pathname: string) {
+function isPublicPath(pathname: string, req: NextRequest) {
   if (PUBLIC_PATHS.includes(pathname)) return true;
   if (pathname.startsWith("/_next")) return true;
   if (pathname.startsWith("/favicon")) return true;
   if (pathname.startsWith("/images")) return true;
   /** Cron-роуты защищены своим секретом (без cookie). */
   if (pathname.startsWith("/api/cron/")) return true;
+  /** ESP32 / IoT: POST с заголовком x-iot-key */
+  if (pathname === "/api/sensors" && req.method === "POST" && req.headers.get("x-iot-key")) {
+    return true;
+  }
   return false;
 }
 
@@ -39,7 +43,7 @@ function allowedRolesForPath(pathname: string): UserRole[] | null {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (isPublicPath(pathname)) return NextResponse.next();
+  if (isPublicPath(pathname, req)) return NextResponse.next();
 
   const token = req.cookies.get(AUTH_COOKIE_NAME)?.value;
   if (!token) {

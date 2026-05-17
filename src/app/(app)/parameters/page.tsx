@@ -112,7 +112,7 @@ export default function ParametersPage() {
   }, []);
 
   useEffect(() => {
-    const id = setInterval(() => load(), 10_000);
+    const id = setInterval(() => load(), 3000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, range]);

@@ -4,7 +4,6 @@ import { db } from "@/lib/db";
 import { requireApiRoles } from "@/lib/api/rbac";
 import { auditLog } from "@/lib/audit";
 import { apiT } from "@/lib/api/i18n";
-
 const GetQuerySchema = z.object({
   greenhouse_id: z.coerce.number().int().positive().optional(),
   range: z.enum(["day", "7d"]).optional(),
@@ -15,9 +14,101 @@ const PostSchema = z.object({
   greenhouse_id: z.number().int().positive(),
   temperature: z.number(),
   humidity: z.number(),
-  co2: z.number(),
+  co2: z.number().optional(),
+  co2_level: z.number().nullable().optional(),
   recorded_at: z.string().optional(),
 });
+
+function resolveCo2(data: { co2?: number; co2_level?: number | null }) {
+  if (typeof data.co2 === "number" && Number.isFinite(data.co2)) return data.co2;
+  if (typeof data.co2_level === "number" && Number.isFinite(data.co2_level)) return data.co2_level;
+  return 650;
+}
+
+async function persistSensorReading(input: {
+  greenhouse_id: number;
+  temperature: number;
+  humidity: number;
+  co2: number;
+  recorded_at: string;
+  recorded_by_user_id: number | null;
+  actorUserId: number | null;
+}) {
+
+  const gh = (await db()
+    .prepare(
+      `SELECT id, name, temp_min, temp_max, humidity_min, humidity_max
+       FROM greenhouses WHERE id = ?`,
+    )
+    .get(input.greenhouse_id)) as
+    | {
+        id: number;
+        name: string;
+        temp_min: number;
+        temp_max: number;
+        humidity_min: number;
+        humidity_max: number;
+      }
+    | undefined;
+
+  if (!gh) return { ok: false as const, status: 404, error: await apiT("api.greenhouseNotFound") };
+
+  await db().transaction(async (tx) => {
+    await tx
+      .prepare(
+        `INSERT INTO sensor_data (greenhouse_id, temperature, humidity, co2, recorded_at, recorded_by_user_id)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        input.greenhouse_id,
+        input.temperature,
+        input.humidity,
+        input.co2,
+        input.recorded_at,
+        input.recorded_by_user_id,
+      );
+
+    if (input.actorUserId != null) {
+      await auditLog(
+        {
+          actorUserId: input.actorUserId,
+          action: "record",
+          entity: "sensor_data",
+          entityId: null,
+          details: `Записаны показания для теплицы #${input.greenhouse_id}: T=${input.temperature}, H=${input.humidity}, CO2=${input.co2} @ ${input.recorded_at}`,
+        },
+        tx,
+      );
+    }
+
+    const tempBad = input.temperature < gh.temp_min || input.temperature > gh.temp_max;
+    const humBad = input.humidity < gh.humidity_min || input.humidity > gh.humidity_max;
+
+    if (tempBad || humBad) {
+      const type = tempBad ? "тревога" : "предупреждение";
+      const parts: string[] = [];
+      if (tempBad) {
+        parts.push(
+          `Температура вне нормы: ${input.temperature}°C (норма ${gh.temp_min}–${gh.temp_max}°C)`,
+        );
+      }
+      if (humBad) {
+        parts.push(
+          `Влажность вне нормы: ${input.humidity}% (норма ${gh.humidity_min}–${gh.humidity_max}%)`,
+        );
+      }
+
+      await tx
+        .prepare(
+          `INSERT INTO notifications (title, message, type, is_read, created_at)
+           VALUES (?, ?, ?, 0, now())`,
+        )
+        .run("Отклонение параметров", `${gh.name}: ${parts.join(" · ")}`, type);
+    }
+  });
+
+  return { ok: true as const };
+}
 
 export async function GET(req: Request) {
   const auth = await requireApiRoles("any");
@@ -127,7 +218,6 @@ export async function GET(req: Request) {
       )
       .all(greenhouse_id)) as unknown[];
 
-    /** Если за период пусто — показываем последние точки, чтобы график не был «пустым». */
     if (history.length === 0) {
       history = (await db()
         .prepare(
@@ -148,8 +238,22 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const auth = await requireApiRoles(["admin", "worker"]);
-  if (!auth.ok) return auth.response;
+  const IOT_SECRET = process.env.IOT_SECRET;
+  const iotKey = req.headers.get("x-iot-key");
+
+  let actorUserId: number | null = null;
+  let recordedByUserId: number | null = null;
+
+  if (iotKey) {
+    if (iotKey !== IOT_SECRET) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  } else {
+    const auth = await requireApiRoles(["admin", "worker"]);
+    if (!auth.ok) return auth.response;
+    actorUserId = Number(auth.user.id);
+    recordedByUserId = actorUserId;
+  }
 
   const json = await req.json().catch(() => null);
   const parsed = PostSchema.safeParse(json);
@@ -160,65 +264,24 @@ export async function POST(req: Request) {
     );
   }
 
-  const { greenhouse_id, temperature, humidity, co2 } = parsed.data;
+  const co2 = resolveCo2(parsed.data);
   const recorded_at =
     parsed.data.recorded_at?.trim() ||
     new Date().toISOString().slice(0, 19).replace("T", " ");
 
-  const gh = (await db()
-    .prepare(
-      `SELECT id, name, temp_min, temp_max, humidity_min, humidity_max
-       FROM greenhouses WHERE id = ?`,
-    )
-    .get(greenhouse_id)) as
-    | {
-        id: number;
-        name: string;
-        temp_min: number;
-        temp_max: number;
-        humidity_min: number;
-        humidity_max: number;
-      }
-    | undefined;
-
-  if (!gh) return NextResponse.json({ ok: false, error: await apiT("api.greenhouseNotFound") }, { status: 404 });
-
-  await db().transaction(async (tx) => {
-    await tx
-      .prepare(
-        `INSERT INTO sensor_data (greenhouse_id, temperature, humidity, co2, recorded_at, recorded_by_user_id)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-      )
-      .run(greenhouse_id, temperature, humidity, co2, recorded_at, Number(auth.user.id));
-
-    await auditLog(
-      {
-        actorUserId: Number(auth.user.id),
-        action: "record",
-        entity: "sensor_data",
-        entityId: null,
-        details: `Записаны показания для теплицы #${greenhouse_id}: T=${temperature}, H=${humidity}, CO2=${co2} @ ${recorded_at}`,
-      },
-      tx,
-    );
-
-    const tempBad = temperature < gh.temp_min || temperature > gh.temp_max;
-    const humBad = humidity < gh.humidity_min || humidity > gh.humidity_max;
-
-    if (tempBad || humBad) {
-      const type = tempBad ? "тревога" : "предупреждение";
-      const parts: string[] = [];
-      if (tempBad) parts.push(`Температура вне нормы: ${temperature}°C (норма ${gh.temp_min}–${gh.temp_max}°C)`);
-      if (humBad) parts.push(`Влажность вне нормы: ${humidity}% (норма ${gh.humidity_min}–${gh.humidity_max}%)`);
-
-      await tx
-        .prepare(
-          `INSERT INTO notifications (title, message, type, is_read, created_at)
-           VALUES (?, ?, ?, 0, now())`,
-        )
-        .run("Отклонение параметров", `${gh.name}: ${parts.join(" · ")}`, type);
-    }
+  const result = await persistSensorReading({
+    greenhouse_id: parsed.data.greenhouse_id,
+    temperature: parsed.data.temperature,
+    humidity: parsed.data.humidity,
+    co2,
+    recorded_at,
+    recorded_by_user_id: recordedByUserId,
+    actorUserId,
   });
+
+  if (!result.ok) {
+    return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
+  }
 
   return NextResponse.json({ ok: true });
 }

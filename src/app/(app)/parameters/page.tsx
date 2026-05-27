@@ -351,9 +351,9 @@ export default function ParametersPage() {
             </div>
 
             <div className="rounded-2xl border border-[var(--border)] bg-black/10 p-4">
-              <div className="text-xs text-[var(--muted)]">CO2</div>
+              <div className="text-xs text-[var(--muted)]">CO₂</div>
               <div className="mt-2 text-2xl font-semibold">
-                {selectedMeta.co2 ?? "—"}{selectedMeta.co2 != null ? " ppm" : ""}
+                CO₂: {selectedMeta.co2 == null ? "—" : `${selectedMeta.co2} ppm`}
               </div>
               <div className="mt-2 text-xs text-[var(--muted)]">Последняя запись: {selectedMeta.recorded_at ?? "—"}</div>
             </div>

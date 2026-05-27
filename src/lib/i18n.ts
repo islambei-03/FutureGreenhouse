@@ -571,6 +571,7 @@ export type I18nKey =
   | "hardware.subtitle"
   | "hardware.temperature"
   | "hardware.humidity"
+  | "hardware.co2"
   | "hardware.online"
   | "hardware.offline"
   | "hardware.source"
@@ -1146,9 +1147,10 @@ const RU: Record<I18nKey, string> = {
   "db.subtitle": "Только для администратора. Просмотр и редактирование таблиц PostgreSQL.",
   "hardware.title": "ESP32 · теплица №1",
   "hardware.subtitle":
-    "Данные приходят с платы ESP32 по Wi‑Fi. Обновление каждые 2–3 секунды. Можно записать замер в базу — он появится в «Параметрах» и отчётах.",
+    "Данные приходят с платы ESP32 по Wi‑Fi. Обновление каждые 10 секунд. Показания появляются в «Параметрах» и отчётах.",
   "hardware.temperature": "Температура",
   "hardware.humidity": "Влажность",
+  "hardware.co2": "CO₂",
   "hardware.online": "Датчик на связи",
   "hardware.offline": "Нет связи",
   "hardware.source": "Адрес контроллера",
@@ -1803,9 +1805,10 @@ const KK: Record<I18nKey, string> = {
   "ai.training.guide.ai.how": "Переключайте вкладки вверху. Внизу каждой вкладки — простое объяснение, как считается результат.",
   "hardware.title": "ESP32 · теплица №1",
   "hardware.subtitle":
-    "Данные приходят с платы ESP32 по Wi‑Fi. Обновление каждые 2–3 секунды. Можно записать замер в базу — он появится в «Параметрах» и отчётах.",
+    "Данные приходят с платы ESP32 по Wi‑Fi. Обновление каждые 10 секунд. Показания появляются в «Параметрах» и отчётах.",
   "hardware.temperature": "Температура",
   "hardware.humidity": "Влажность",
+  "hardware.co2": "CO₂",
   "hardware.online": "Датчик на связи",
   "hardware.offline": "Нет связи",
   "hardware.source": "Адрес контроллера",

@@ -39,9 +39,9 @@ type FilterOp = "eq" | "contains" | "gt" | "gte" | "lt" | "lte" | "isnull" | "no
 type FilterRow = { col: string; op: FilterOp; val?: string };
 
 function formatCell(v: unknown) {
-  if (v == null) return { text: "тАФ", isLong: false, full: "" };
+  if (v == null) return { text: "—", isLong: false, full: "" };
   const s = typeof v === "string" ? v : JSON.stringify(v);
-  const text = s.length > 160 ? `${s.slice(0, 160)}тАж` : s;
+  const text = s.length > 160 ? `${s.slice(0, 160)}…` : s;
   return { text, isLong: s.length > 160, full: s };
 }
 
@@ -579,7 +579,7 @@ export default function DbPage() {
               <div key={c.name} className="rounded-xl border border-[var(--border)] bg-black/10 px-3 py-2">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium">{c.name}</span>
-                  <span className="text-xs text-[var(--muted)]">{c.type || "тАФ"}</span>
+                  <span className="text-xs text-[var(--muted)]">{c.type || "—"}</span>
                 </div>
                 <div className="mt-1 text-xs text-[var(--muted)]">
                   {c.pk ? "PK" : ""} {c.notnull ? "NOT NULL" : ""}{" "}
@@ -596,10 +596,10 @@ export default function DbPage() {
               {foreignKeys.map((fk, i) => (
                 <div key={`${fk.id}-${fk.seq}-${i}`} className="rounded-xl border border-[var(--border)] bg-black/10 px-3 py-2">
                   <div className="font-medium">
-                    {fk.from} тЖТ {fk.table}.{fk.to}
+                    {fk.from} → {fk.table}.{fk.to}
                   </div>
                   <div className="mt-1 text-xs text-[var(--muted)]">
-                    ON UPDATE {fk.on_update || "тАФ"} ┬╖ ON DELETE {fk.on_delete || "тАФ"}
+                    ON UPDATE {fk.on_update || "—"} · ON DELETE {fk.on_delete || "—"}
                   </div>
                 </div>
               ))}
@@ -613,7 +613,7 @@ export default function DbPage() {
             <div className="min-w-0">
               <div className="font-semibold">{tr("db.rows")}</div>
               <div className="text-sm text-[var(--muted)] mt-1">
-                {count} ┬╖ {page}/{pages}
+                {count} записей · стр. {page} из {pages}
               </div>
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -704,7 +704,7 @@ export default function DbPage() {
                 {!rows.length ? (
                   <tr>
                     <td className="p-6 text-[var(--muted)]" colSpan={Math.max(2, columns.length + 1)}>
-                      {loading ? tr("common.loading") : "тАФ"}
+                      {loading ? tr("common.loading") : "—"}
                     </td>
                   </tr>
                 ) : null}
@@ -724,13 +724,13 @@ export default function DbPage() {
         }}
       >
         <pre className="max-h-[min(60vh,28rem)] overflow-auto text-xs whitespace-pre-wrap break-words rounded-xl border border-[var(--border)] bg-black/20 p-4">
-          {cellValue || "тАФ"}
+          {cellValue || "—"}
         </pre>
       </AppModal>
 
       <AppModal
         maxWidth="3xl"
-        title={rowMode === "add" ? `${tr("common.add")} ┬╖ ${table}` : `${tr("common.edit")} ┬╖ ${table}`}
+        title={rowMode === "add" ? `${tr("common.add")} · ${table}` : `${tr("common.edit")} · ${table}`}
         open={rowOpen}
         onClose={() => {
           setRowOpen(false);
